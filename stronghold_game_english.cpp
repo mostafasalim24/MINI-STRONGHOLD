@@ -268,9 +268,10 @@ struct Lord {
     float hpMul, buildT;                // soldier HP multiplier, seconds between construction steps
     int wt[8];                          // how often each unit type is trained: slave, archer, assassin, horseman, horse archer, catapult, knight, crossbow
     int cataBase, cataDiv;              // catapult cap in an army = cataBase + attacks / cataDiv
-    const char* taunt[3]; Color stoneCol; int keepKind, dome;   // keepKind: 0 domed teal, 1 castle sprite, 2 domed gold, 3 round towers, 4 desert fortress, 5 grand castle; dome: round-tower dome colour 0 none 1 teal 2 gold
+    const char* taunt[3]; Color stoneCol; int keepKind, dome;
+    int doctrine = 0; const char* emblem = "Crown"; // doctrine drives economy/army priorities
 };
-const int NLORD = 13;
+const int NLORD = 21;
 const Lord LORDS[NLORD] = {
     {"The Sultan", "Rich and cunning", "Domed desert fortress. Many archers.", "Builds his walls very quickly.", {255, 232, 190, 255}, 1.0f, 4.f,
      {1, 3, 1, 1, 3, 1, 1, 2}, 1, 3, {"Your gold will soon be mine!", "My archers darken the sky!", "Bow before the Sultan!"}, {222, 190, 130, 255}, 0, 1},
@@ -297,7 +298,16 @@ const Lord LORDS[NLORD] = {
     {"The Arabic Lord", "Desert Commander", "Animated Arabic commander with fast cavalry.", "Horse archers and mobile desert troops.", {205, 145, 80, 255}, 1.1f, 4.5f,
      {1, 2, 1, 2, 5, 1, 1, 2}, 1, 3, {"The desert rides with me!", "My horse archers never miss!", "Welcome to my lands!"}, {170, 105, 65, 255}, 4, 2},
     {"The English Lord", "English Commander", "Armoured king with a royal shield.", "Disciplined knights and archers.", {180, 195, 220, 255}, 1.15f, 5.f,
-     {1, 3, 1, 2, 1, 1, 4, 2}, 1, 3, {"For the crown!", "Hold the line!", "The kingdom will prevail!"}, {135, 145, 165, 255}, 5, 0}};
+     {1, 3, 1, 2, 1, 1, 4, 2}, 1, 3, {"For the crown!", "Hold the line!", "The kingdom will prevail!"}, {135, 145, 165, 255}, 5, 0},
+    // Eight original skirmish lords: doctrines influence economy and military priorities.
+    {"The Sultan", "Arabian • Balanced ruler", "Fortified desert capital; mixed infantry, archers and horsemen.", "Builds steadily, then attacks with a balanced force.", {238, 198, 120, 255}, 1.08f, 4.8f, {2,4,1,2,2,1,2,2}, 1,3, {"The desert kingdoms stand united!", "My army is ready, stranger.", "The Sultan does not retreat!"}, {190,145,85,255}, 4,2, 0, "Crescent"},
+    {"The Desert Falcon", "Arabian • Raider", "Compact fortress with cavalry-focused recruitment.", "Fast build cycle and frequent mobile attacks.", {220,170,95,255}, 1.0f, 3.8f, {1,1,0,5,5,0,1,1}, 0,5, {"You cannot catch the Falcon!", "My riders are already upon you!", "Strike swiftly!"}, {165,115,65,255}, 4,2, 1, "Falcon"},
+    {"The Emir", "Arabian • Prosperous trader", "Market-led settlement with farms and gardens.", "Builds a larger economy before fielding elite guards.", {150,210,185,255}, 1.12f, 5.2f, {1,2,1,1,2,1,2,3}, 1,4, {"Trade brings strength.", "My granaries are full.", "A rich kingdom is hard to conquer."}, {175,145,100,255}, 0,1, 2, "Palm"},
+    {"The Desert Guardian", "Arabian • Fortress keeper", "Layered round walls, towers and defensive infantry.", "Prioritizes crossbows and waits for a strong garrison.", {185,175,130,255}, 1.25f, 5.8f, {1,3,1,0,1,1,1,5}, 2,3, {"My walls will hold.", "Come closer, and meet my archers.", "The fortress remains!"}, {145,125,95,255}, 3,0, 3, "Shield"},
+    {"The Lionheart", "English • Crusading commander", "Large stone castle with knights and siege support.", "Builds a strong barracks and launches organized assaults.", {190,90,75,255}, 1.25f, 4.2f, {1,2,1,1,0,3,5,3}, 2,3, {"For the crown and the realm!", "Knights, advance!", "Your walls shall break!"}, {145,125,120,255}, 5,0, 4, "Lion"},
+    {"The Iron Duke", "English • Defensive lord", "Stone ring fortress with towers and crossbowmen.", "Slow expansion, high durability and defensive reserves.", {125,145,175,255}, 1.35f, 6.0f, {1,2,1,0,0,2,2,5}, 2,2, {"Steel and stone endure.", "My crossbows are in position.", "You shall not pass!"}, {115,125,145,255}, 1,0, 3, "Anvil"},
+    {"The Wolf", "English • Unpredictable raider", "Compact mixed castle and flexible army.", "Changes between infantry, cavalry and siege pressure.", {145,155,175,255}, 1.12f, 3.9f, {2,2,3,3,2,2,2,2}, 2,3, {"The pack is moving!", "I see weakness in your walls.", "The hunt is not over!"}, {115,120,130,255}, 1,0, 5, "Wolf"},
+    {"The Rich Baron", "English • Industrial magnate", "Industry, market and weapon production.", "Builds up resources and fields expensive trained troops.", {190,175,115,255}, 1.18f, 5.0f, {1,2,1,1,1,2,4,4}, 2,3, {"Gold and iron win kingdoms.", "My armouries are full.", "Wealth has its own army."}, {150,135,100,255}, 5,0, 7, "Coin"}};
 
 // ---------------- missions ----------------
 struct MEnemy { int lord, kx, ky; };
@@ -366,7 +376,7 @@ void enemyMsg(int lord, const string& text, int kind = 0, bool urgent = false) {
     if (urgent) MQ.insert(MQ.begin(), {lord, text, 0.f, 0.f, kind}); else if (MQ.size() < 3) MQ.push_back({lord, text, 0.f, 0.f, kind});
     if (urgent && msgActive) msgActive = false;   // an urgent message replaces the one on screen
 }
-float lordPitch(int l) { static const float P[13] = {1.05f, 0.72f, 0.95f, 1.30f, 1.45f, 1.20f, 0.82f, 1.00f, 0.90f, 0.78f, 0.62f, 0.92f, 0.85f}; return P[((l % 13) + 13) % 13]; }
+float lordPitch(int l) { static const float P[21] = {1.05f,0.72f,0.95f,1.30f,1.45f,1.20f,0.82f,1.00f,0.90f,0.78f,0.62f,0.92f,0.85f,1.08f,1.18f,0.96f,1.12f,0.82f,0.76f,0.88f,0.94f}; return P[max(0,min(20,l))]; }
 void tickMsg(float dt) {
     if (!msgActive && !MQ.empty()) { curMsg = MQ.front(); MQ.erase(MQ.begin()); curMsg.t = 0; curMsg.dur = 2.4f + (float)curMsg.text.size() * 0.045f + 2.4f; msgActive = true; msgShown = 0; sfx(SFX_MSG, 0.7f, 0.f); }
     if (!msgActive) return;
@@ -460,8 +470,16 @@ const Cas CAS[NLORD] = {
     /*Emir*/    {0, 7, 6, 3, 2, 1, {WOOD, QUARRY, HOUSE, BARRACKS}, {TENT, BARRACKS, SMITH, POLE, HOUSE, HOUSE, MARKET}},
     /*Marshal*/ {0, 6, 6, 3, 2, 0, {WOOD, WOOD, QUARRY, HOUSE, BARRACKS}, {TENT, BARRACKS, SIEGE, CHURCH, HOUSE, HOUSE, SMITH}},
     /*Emperor*/ {0, 8, 7, 3, 2, 1, {WOOD, WOOD, QUARRY, QUARRY, HOUSE, BARRACKS}, {BARRACKS, TENT, SIEGE, INN, CHURCH, SMITH, POLE, HOUSE, HOUSE, HOUSE, MARKET}},
-     /*Arabic Lord*/ {1, 7.0f, 0, 3.4f, 0, 1, {WOOD, QUARRY, HOUSE, BARRACKS}, {TENT, BARRACKS, SIEGE, MARKET, HOUSE, HOUSE}},
-     /*English Lord*/ {0, 7, 6, 3, 2, 0, {WOOD, WOOD, QUARRY, HOUSE, BARRACKS}, {BARRACKS, TENT, SIEGE, CHURCH, HOUSE, HOUSE, SMITH}}};
+    /*Arabic Lord*/ {1, 7.0f, 0, 3.4f, 0, 1, {WOOD, QUARRY, HOUSE, BARRACKS}, {TENT, BARRACKS, SIEGE, MARKET, HOUSE, HOUSE}},
+    /*English Lord*/ {0, 7, 6, 3, 2, 0, {WOOD, WOOD, QUARRY, HOUSE, BARRACKS}, {BARRACKS, TENT, SIEGE, CHURCH, HOUSE, HOUSE, SMITH}},
+    /*The Sultan*/ {0, 7, 6, 2.5f, 2, 1, {WOOD, QUARRY, WHEAT, HOUSE, BARRACKS}, {TENT, BARRACKS, TOWER, MARKET, HOUSE, HOUSE, GARDEN}},
+    /*Desert Falcon*/ {0, 5, 4, 0, 1, 0, {WOOD, HOUSE, TENT}, {TENT, HOUSE, STORAGE}},
+    /*The Emir*/ {0, 7, 6, 3, 2, 1, {WOOD, QUARRY, WHEAT, HOUSE, MARKET}, {GRANARY, APPLE, DATE, MARKET, GARDEN, GARDEN}},
+    /*Desert Guardian*/ {1, 7.5f, 0, 4.0f, 0, 1, {WOOD, QUARRY, HOUSE, BARRACKS}, {BARRACKS, TOWER, TOWER, TENT, STORAGE}},
+    /*Lionheart*/ {0, 8, 7, 3, 2, 0, {WOOD, WOOD, QUARRY, HOUSE, BARRACKS}, {BARRACKS, SIEGE, SMITH, TENT, CHURCH}},
+    /*Iron Duke*/ {0, 7, 6, 3, 2, 0, {WOOD, QUARRY, BARRACKS}, {TOWER, TOWER, BARRACKS, STORAGE, SMITH}},
+    /*The Wolf*/ {1, 6.0f, 0, 2.8f, 0, 1, {WOOD, QUARRY, HOUSE, TENT}, {BARRACKS, TENT, SIEGE, MARKET, HOUSE}},
+    /*Rich Baron*/ {0, 8, 7, 3, 2, 0, {WOOD, QUARRY, WHEAT, HOUSE, MARKET}, {GRANARY, MILL, BAKERY, SMITH, POLE, MARKET, GARDEN}}};
 void genGeneric(Enemy& e, const Cas& d, vector<BP>& first, vector<BP>& defs, vector<BP>& walls, vector<BP>& rest) {
     int cx = e.kx + 1, cy = e.ky + 1; static bool res[MH][MW], ins[MH][MW]; memset(res, 0, sizeof res); memset(ins, 0, sizeof ins);
     vector<BP> idefs, iwalls; vector<pair<int, int>> cells;
@@ -576,8 +594,10 @@ void trainEnemy(int ei) {
 void aiTick(int ei, float dt) {
     Enemy& e = EN[ei]; if (e.defeated) return;
     const Lord& L = LORDS[e.lord];
-    e.wood += dt * (1.6f + 1.0f * ownCount(ei, WOOD)); e.stone += dt * (2.2f + 1.2f * ownCount(ei, QUARRY));
-    e.gold += dt * (2.0f + 0.8f * (ownCount(ei, HOUSE) + ownCount(ei, MARKET)));
+    const float econBoost = L.doctrine == 2 || L.doctrine == 7 ? 1.45f : L.doctrine == 3 ? 0.9f : 1.0f;
+    e.wood += dt * (1.6f + 1.0f * ownCount(ei, WOOD)) * econBoost;
+    e.stone += dt * (2.2f + 1.2f * ownCount(ei, QUARRY)) * (L.doctrine == 3 ? 1.35f : econBoost);
+    e.gold += dt * (2.0f + 0.8f * (ownCount(ei, HOUSE) + ownCount(ei, MARKET))) * econBoost;
     for (size_t i = 0; i < e.bpl.size(); i++) if (e.idx[i] >= 0 && B[e.idx[i]].dead) { e.idx[i] = -1; e.done = false; }  // destroyed pieces are rebuilt
     e.buildT += dt;
     if (e.buildT >= L.buildT * cur.buildMul) {
@@ -595,9 +615,15 @@ void aiTick(int ei, float dt) {
     }
     // train soldiers in his barracks / tents / siege workshop (paid with his own gold), they gather in front of the gate
     int mil = ownCount(ei, BARRACKS) + ownCount(ei, TENT);
-    if (mil > 0) { e.trainT += dt; if (e.trainT >= cur.trainInt / (1 + 0.4f * (mil - 1))) { e.trainT = 0; trainEnemy(ei); if (ownCount(ei, SIEGE) > 0 && rand() % 3 == 0) trainEnemy(ei); } }
-    // and when enough soldiers are ready (or the timer ran out) he sends them to attack
-    e.atkT += dt; int army = armyCount(ei); int need = min(cur.armyMax, (int)(cur.armyBase + e.wave * cur.armyGrow)); float iv = e.wave == 0 ? cur.firstAtk : cur.atkInt;
+    if (mil > 0) {
+        e.trainT += dt;
+        float trainScale = L.doctrine == 1 || L.doctrine == 5 ? 0.78f : L.doctrine == 2 || L.doctrine == 7 ? 1.22f : L.doctrine == 3 ? 1.12f : 1.0f;
+        if (e.trainT >= cur.trainInt * trainScale / (1 + 0.4f * (mil - 1))) { e.trainT = 0; trainEnemy(ei); if (ownCount(ei, SIEGE) > 0 && rand() % 3 == 0) trainEnemy(ei); }
+    }
+    // Personality changes when the lord commits to an attack or waits for a stronger garrison.
+    e.atkT += dt; int army = armyCount(ei); int need = min(cur.armyMax, (int)(cur.armyBase + e.wave * cur.armyGrow));
+    float attackScale = L.doctrine == 1 || L.doctrine == 5 ? 0.78f : L.doctrine == 3 || L.doctrine == 7 ? 1.25f : 1.0f;
+    float iv = (e.wave == 0 ? cur.firstAtk : cur.atkInt) * attackScale;
     if (e.atkT >= iv && (army >= need || (e.atkT >= iv * 2.5f && army >= 2))) {
         e.atkT = 0; e.wave++; wave++; int sent = 0;
         for (auto& u : U) if (u.own == ei && u.army && u.guard) { u.guard = false; sent++; }
