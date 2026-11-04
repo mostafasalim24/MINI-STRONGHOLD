@@ -1,0 +1,31 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-raylib
+      - name: Compile Mini Stronghold
+        shell: msys2 {0}
+        run: |
+          g++ stronghold_game_english.cpp -o StrongholdGame.exe -std=c++17 -O2 -Wall -Wextra -I/ucrt64/include -L/ucrt64/lib -lraylib -lopengl32 -lgdi32 -lwinmm -luser32 -lshell32
+      - name: Upload game executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mini-Stronghold-Windows
+          path: StrongholdGame.exe
+          if-no-files-found: error
