@@ -756,11 +756,21 @@ bool canTrainAt(int btype, int ti) {
     return false;
 }
 int findTrainer(int ti) { for (size_t i = 0; i < B.size(); i++) if (!B[i].dead && !B[i].enemy && B[i].prog >= 1.f && canTrainAt(B[i].type, ti)) return (int)i; return -1; }
+string trainBlockReason(int ti, int br) {
+    if (br < 0 || br >= (int)B.size() || B[br].dead || !built(B[br])) return "The required training building is not ready.";
+    const TInfo& t = TR[ti]; bool arabTent = B[br].type == TENT;
+    int stock = t.res == 0 ? bows : t.res == 1 ? spears : t.res == 2 ? swords : -1;
+    if (!arabTent && t.res >= 0 && stock < 1) return string("Not enough ") + (t.res == 0 ? "bows." : t.res == 1 ? "spears." : "swords.");
+    if (gold < t.gold) return TextFormat("Need %d more gold.", t.gold - gold);
+    if (wood < t.wood) return TextFormat("Need %d more wood.", t.wood - wood);
+    if (pop - employed < 1) return "No idle peasant available. Build houses or free a worker.";
+    return "";
+}
 bool trainOne(int ti, int br) {
     const TInfo& t = TR[ti]; int* stock = t.res == 0 ? &bows : t.res == 1 ? &spears : t.res == 2 ? &swords : nullptr;
     // Barracks consume weapon stock; the Arabic War Tent recruits with gold only.
     bool arabTent = B[br].type == TENT;
-    if ((!arabTent && stock && *stock < 1) || gold < t.gold || wood < t.wood || pop - employed < 1) return false;
+    if (!trainBlockReason(ti, br).empty()) return false;
     if (!arabTent && stock) *stock -= 1;
     gold -= t.gold; wood -= t.wood; pop--;
     int s = sizeOf(B[br].type); Vector2 sp = freeNear({(B[br].x + s / 2.0f) * TS, (B[br].y + s + 0.5f) * TS});
@@ -768,12 +778,16 @@ bool trainOne(int ti, int br) {
     U.push_back({sp, {0, 0}, t.unit, false, false, false, UINFO[t.unit].hp, 0, 0});
     return true;
 }
-void trainMany(int ti, int n, int br = -1) {   // n < 0: train as many as the stockpile, gold and peasants allow
+void trainMany(int ti, int n, int br = -1) {
     if (br < 0) br = findTrainer(ti);
-    if (br < 0) { say(string("You need a ") + (ti == 16 ? "Engineer Guild" : ti >= 8 ? "Siege Workshop" : "Barracks") + " first!"); sfx(SFX_DENY); return; }
-    int done = 0; while ((n < 0 || done < n) && done < 200) { if (!trainOne(ti, br)) break; done++; }
-    if (done) { sfx(SFX_TRAIN, 0.55f, 0.1f); say(TextFormat("Trained %d %s", done, TR[ti].name)); }
-    else { sfx(SFX_DENY); say("Need weapons, gold and an idle peasant!"); }
+    if (br < 0) { say(string("You need a ") + (ti == 16 ? "Engineer Guild" : ti >= 17 ? "Siege Workshop" : ti >= 8 ? "War Tent" : "Barracks") + " first!"); sfx(SFX_DENY); return; }
+    int done = 0;
+    while ((n < 0 || done < n) && done < 200) { if (!trainOne(ti, br)) break; done++; }
+    if (done) {
+        sfx(SFX_TRAIN, 0.55f, 0.1f);
+        if (n >= 0 && done < n) say(TextFormat("Trained %d %s. %s", done, TR[ti].name, trainBlockReason(ti, br).c_str()));
+        else say(TextFormat("Trained %d %s", done, TR[ti].name));
+    } else { sfx(SFX_DENY); say(trainBlockReason(ti, br)); }
 }
 
 // ---------------- market goods ----------------
@@ -951,10 +965,12 @@ void update(float dt) {
         ecoT = 0;
         static const int RP[4] = {-20, -5, 5, 15}; static const float RM[4] = {0, 0.5f, 1, 2};
         bool granaryReady = hasGranary();
-        int need = granaryReady ? (int)(pop * RM[ration] / 4) : 0;
-        auto eat = [&](int& s) { int t = min(s, need); s -= t; need -= t; };
+        const int foodRequired = granaryReady ? (int)ceilf(pop * RM[ration] / 4.f) : (ration > 0 ? max(1, (int)ceilf(pop * RM[ration] / 4.f)) : 0);
+        int need = foodRequired;
+        auto eat = [&](int& stock) { int consumed = min(stock, need); stock -= consumed; need -= consumed; };
         eat(meat); eat(bread); eat(apples); eat(dates);
-        bool starving = ration > 0 && (!granaryReady || totalFood() == 0);
+        // Any unmet ration demand causes hunger, not just a completely empty food stockpile.
+        bool starving = ration > 0 && need > 0;
         gold += (int)(pop * tax * 0.5f); if (gold < 0) gold = 0;
         if (autoTrade) {
             if (bows < 4 && wood >= 2 && !autoSellOn[0]) { wood -= 2; bows++; }
@@ -999,7 +1015,6 @@ void update(float dt) {
             switch (b.type) {
                 case MILL: ok = ok && grain >= 3; break; case BAKERY: ok = ok && flour >= 3; break; case WINERY: ok = ok && grapes >= 3; break; case CANDLE: ok = ok && wood >= 2; break;
                 case FLETCHER: case POLE: ok = ok && wood >= 2; break; case SMITH: ok = ok && iron >= 2; break; default: break; }
-            if ((workerKind(b.type) >= 0 || b.type == BAKERY || b.type == HUNTER) && !hasGranary()) ok = false;
             b.working = ok; if (!ok) continue;
             b.t += dt;
             if (b.t >= 3) { b.t = 0;
@@ -1928,7 +1943,7 @@ void hud(Vector2 m, bool click, int& build, Camera2D& cam) {
 
 void drawSelectionInfo(Vector2 m) {
     if (selectedBuilding < 0 || selectedBuilding >= (int)B.size() || B[selectedBuilding].dead) return;
-    Building& b = B[selectedBuilding]; Rectangle r = {8, 34, 320, 92};
+    Building& b = B[selectedBuilding]; Rectangle r = {8, 34, 470, 92};
     DrawRectangleRec(r, Color{25, 18, 10, 225}); DrawRectangleLinesEx(r, 2, GOLD);
     DrawText(INFO[b.type].name, 18, 42, 18, GOLD);
     const char* st = "";
@@ -1941,7 +1956,8 @@ void drawSelectionInfo(Vector2 m) {
     else if (b.type == ENGGUILD) st = "Recruit engineers - they repair buildings";
     DrawText(st, 18, 66, 14, RAYWHITE);
     DrawText(DESC[b.type], 18, 86, 11, Color{220, 205, 165, 255});
-    DrawText(TextFormat("HP: %.0f / %d", b.hp, INFO[b.type].hp), 18, 104, 12, LIGHTGRAY);
+    DrawText(TextFormat("Cost: %d wood  %d stone  %d gold   Build: %.1fs", INFO[b.type].wood, INFO[b.type].stone, INFO[b.type].gold, BUILD_TIME[b.type]), 18, 103, 10, GOLD);
+    DrawText(TextFormat("HP: %.0f / %d", b.hp, INFO[b.type].hp), 18, 116, 11, LIGHTGRAY);
 }
 
 void topBar() {
