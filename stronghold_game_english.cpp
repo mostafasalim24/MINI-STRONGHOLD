@@ -116,7 +116,7 @@ float ecoT, waveT, bannerT; string banner;
 bool gameOver, won, paused;
 int keepStyle = 0; bool inMenu = true;
 int difficulty = 1; bool enemyOn[5] = {true, true, true, true, true};  // custom game: slaves, archers, assassins, horsemen, catapults
-int mapStyle = 0, lordStyle = 0;   // lordStyle = enemy chosen in Custom Game
+int mapStyle = 0, lordStyle = 13, opponentCount = 1;   // eight new skirmish lords; up to three opponents on the current map
 int curMission = -1, campDone = 0; bool tutDone = false;   // curMission: -1 custom game, 0 tutorial, 1..10 campaign
 bool autoTrade = true, enemyBuilding = false;
 bool autoSellUpTo = false; // false = keep reserve (sell > limit), true = sell anything up to limit
@@ -342,9 +342,13 @@ const Mission MISSIONS[11] = {
 Mission cur = MISSIONS[1];
 // custom game difficulty presets: easy / normal / hard
 Mission makeCustom() {
-    Mission m = MISSIONS[4]; m.name = "Custom game"; m.map = mapStyle; m.n = 1; m.en[0] = {lordStyle, 46, 16};
-    static const float hp[3] = {0.8f, 1.f, 1.25f}, bm[3] = {1.4f, 1.0f, 0.8f}, ti[3] = {14, 10, 7}, ai[3] = {78, 62, 50}, fa[3] = {120, 90, 70}, ag[3] = {1.f, 1.5f, 2.f};
-    static const int ab[3] = {4, 5, 6}, am[3] = {18, 26, 34};
+    Mission m = MISSIONS[4]; m.name = "Custom skirmish"; m.map = mapStyle;
+    static const int SX[3] = {46, 46, 26}, SY[3] = {16, 7, 16};
+    m.n = max(1, min(3, opponentCount));
+    for (int i = 0; i < m.n; ++i) m.en[i] = {(13 + ((lordStyle - 13 + i) % 8)), SX[i], SY[i]};
+    static const float hp[4] = {0.8f, 1.f, 1.25f, 1.5f}, bm[4] = {1.45f, 1.0f, 0.82f, 0.68f}, ti[4] = {15, 10, 7, 5}, ai[4] = {90, 62, 50, 38}, fa[4] = {145, 90, 70, 55}, ag[4] = {0.8f, 1.5f, 2.f, 2.5f};
+    static const int ab[4] = {3, 5, 6, 8}, am[4] = {14, 26, 34, 42};
+    difficulty = max(0, min(3, difficulty));
     m.hpMul = hp[difficulty]; m.buildMul = bm[difficulty]; m.trainInt = ti[difficulty]; m.atkInt = ai[difficulty]; m.firstAtk = fa[difficulty]; m.armyBase = ab[difficulty]; m.armyGrow = ag[difficulty]; m.armyMax = am[difficulty];
     m.wood0 = 150; m.stone0 = 80; m.gold0 = 300; return m;
 }
@@ -643,13 +647,21 @@ void reset() {
         float left = hypotf(x - 5.f, y - 17.f), right = 99;
         for (auto& e : EN) right = min(right, hypotf(x - (e.kx + 1.f), y - (e.ky + 1.f)));
         if (mapStyle == 1) n += sinf(y * 0.75f) * 0.55f;
-        if (mapStyle == 2) n -= cosf(x * 0.7f) * 0.35f;
-        ter[y][x] = (n > 0.7f || left < 8 || right < 9.f) ? 1 : (n < -1.2f ? 2 : 0);
+        if (mapStyle == 2 || mapStyle == 6) n -= cosf(x * 0.7f) * 0.35f;
+        bool greenMap = mapStyle == 4 || mapStyle == 5;
+        ter[y][x] = greenMap ? (n > -0.2f ? 1 : 0) : ((n > 0.7f || left < 8 || right < 9.f) ? 1 : (n < -1.2f ? 2 : 0));
         occ[y][x] = -1;
         bool water = false;
+        // Eight original layouts: oasis, lake, mountain valley, arid dunes,
+        // green highlands, twin-castle river, broken ruins, and central fortress.
         if (mapStyle == 0) water = ((x - 30) * (x - 30) + (y - 6) * (y - 6) * 1.5f < 30 || (x - 24) * (x - 24) + (y - 28) * (y - 28) < 14);
-        if (mapStyle == 1) water = ((x - 27) * (x - 27) + (y - 17) * (y - 17) < 28);
-        if (mapStyle == 2) water = (y == 6 || y == 7 || y == 27 || y == 28) && x > 13 && x < 35;
+        else if (mapStyle == 1) water = ((x - 27) * (x - 27) + (y - 17) * (y - 17) < 42);
+        else if (mapStyle == 2) { water = ((x == 16 || x == 17 || x == 38 || x == 39) && y > 5 && y < 29); if ((y < 10 || y > 24) && x > 14 && x < 42) ter[y][x] = 2; }
+        else if (mapStyle == 3) water = ((x - 29) * (x - 29) + (y - 17) * (y - 17) < 8);
+        else if (mapStyle == 4) water = (x == 28 || x == 29) && y > 3 && y < 31;
+        else if (mapStyle == 5) water = (x == 27 || x == 28) && y > 2 && y < 32 && !(y >= 14 && y <= 18);
+        else if (mapStyle == 6) { water = ((x - 27) * (x - 27) + (y - 17) * (y - 17) < 10); if (((x + y * 3) % 13) < 3 && x > 12) ter[y][x] = 2; }
+        else if (mapStyle == 7) water = ((x - 28) * (x - 28) + (y - 17) * (y - 17) < 5);
         if (water) { ter[y][x] = 3; occ[y][x] = -4; }
         else if (x > 10 && rand() % 100 < (ter[y][x] == 1 ? 15 : 5)) occ[y][x] = -2;
     }
@@ -2304,39 +2316,40 @@ int main() {
                 }
                 if (btn({SW / 2.f - 150, 530, 300, 54}, selMission == 0 ? "START TUTORIAL" : "START MISSION", false, m, mc, 24)) { startMission(selMission, cam); winRecorded = false; screen = 0; }
                 if (btn({60.f, 540, 140, 40}, "Back", false, m, mc, 18)) screen = selMission == 0 ? 0 : 1;
-            } else if (screen == 3) {   // ---- custom game ----
-                const char* sub = "CUSTOM GAME - choose the enemy lord"; DrawText(sub, SW / 2 - MeasureText(sub, 20) / 2, 66, 20, ink);
-                for (int i = 0; i < 3; i++) {
-                    const Lord& L = LORDS[i];
-                    Rectangle r = {192.f + i * 192.f, 90, 180, 306};
-                    bool h = CheckCollisionPointRec(m, r) && !optOpen; if (h && mc) { lordStyle = i; sfx(SFX_CLICK, 0.5f); }
-                    bool sel = lordStyle == i;
-                    DrawRectangleRec(r, Color{22, 15, 9, 228});
-                    Rectangle ir = {r.x + 5, r.y + 5, 170, 190};
-                    if (lordsOk) DrawTexturePro(LORD_CARD[i], Rectangle{0, 0, (float)LORD_CARD[i].width, (float)LORD_CARD[i].height}, ir, Vector2{0, 0}, 0, sel ? WHITE : (h ? Color{215, 215, 215, 255} : Color{140, 140, 140, 255}));
-                    DrawRectangleLinesEx(r, sel ? 4.f : 1.f, sel ? GOLD : Color{120, 95, 60, 255});
-                    DrawText(L.name, (int)r.x + 7, (int)r.y + 205, 16, sel ? GOLD : RAYWHITE);
-                    DrawText(L.title, (int)r.x + 7, (int)r.y + 230, 10, Color{L.tint.r, L.tint.g, L.tint.b, 255});
-                    DrawText(L.d1, (int)r.x + 7, (int)r.y + 250, 10, LIGHTGRAY);
-                    DrawText(L.d2, (int)r.x + 7, (int)r.y + 275, 10, LIGHTGRAY);
+            } else if (screen == 3) {   // ---- skirmish setup ----
+                const char* sub = "SKIRMISH SETUP - choose your rival and battlefield";
+                DrawText(sub, SW / 2 - MeasureText(sub, 20) / 2, 60, 20, ink);
+                for (int i = 0; i < 8; ++i) {
+                    const Lord& L = LORDS[13 + i]; int col = i % 4, row = i / 4;
+                    Rectangle r = {24.f + col * 230.f, 92.f + row * 112.f, 218, 102};
+                    bool h = CheckCollisionPointRec(m, r) && !optOpen;
+                    if (h && mc) { lordStyle = 13 + i; sfx(SFX_CLICK, 0.5f); }
+                    bool sel = lordStyle == 13 + i;
+                    DrawRectangleRec(r, Color{24, 18, 12, 238});
+                    DrawRectangleRec({r.x + 5, r.y + 5, 40, 40}, L.tint);
+                    DrawCircleLines((int)r.x + 25, (int)r.y + 25, 16, L.stoneCol);
+                    DrawText(L.emblem, (int)r.x + 7, (int)r.y + 53, 9, L.stoneCol);
+                    DrawText(L.name, (int)r.x + 52, (int)r.y + 9, 15, sel ? GOLD : RAYWHITE);
+                    DrawText(L.title, (int)r.x + 52, (int)r.y + 30, 10, L.tint);
+                    DrawText(L.d1, (int)r.x + 52, (int)r.y + 49, 9, LIGHTGRAY);
+                    DrawText(L.d2, (int)r.x + 52, (int)r.y + 68, 9, LIGHTGRAY);
+                    DrawRectangleLinesEx(r, sel ? 3.f : 1.f, sel ? GOLD : Color{105, 85, 60, 255});
                 }
-                DrawText("Your castle", 24, 410, 18, ink);
-                static const char* KN[3] = {"Grand Castle", "Round Towers", "Desert Fortress"};
-                for (int i = 0; i < 3; i++) if (btn({150.f + i * 158, 404, 152, 30}, (i == 0 && !SP[S_CASTLE].ok) ? "Square Keep" : KN[i], keepStyle == i, m, mc)) keepStyle = i;
-                DrawText("Map", 24, 446, 18, ink);
-                static const char* MAPN[3] = {"Oasis", "River", "Desert"};
-                for (int mi = 0; mi < 3; mi++) if (btn({150.f + mi * 112, 440, 106, 30}, MAPN[mi], mapStyle == mi, m, mc)) mapStyle = mi;
-                DrawText("Difficulty", 24, 482, 18, ink);
-                static const char* DN[3] = {"Easy", "Normal", "Hard"};
-                for (int d = 0; d < 3; d++) if (btn({150.f + d * 112, 476, 106, 30}, DN[d], difficulty == d, m, mc)) difficulty = d;
-                { Mission pm = makeCustom(); DrawText(TextFormat("First attack after ~%d s, then every ~%d s. Army cap %d.", (int)pm.firstAtk, (int)pm.atkInt, pm.armyMax), 500, 483, 13, ink); }
-                DrawText("Enemy types", 24, 518, 18, ink);
+                DrawText("Map", 24, 326, 16, GOLD);
+                static const char* MAPN[8] = {"Crossroads", "Great Oasis", "Kings Valley", "Burning Sands", "Highlands", "Twin Castles", "Ancient Ruins", "Last Fortress"};
+                for (int mi = 0; mi < 8; ++mi) if (btn({145.f + mi * 98.f, 320, 94, 30}, MAPN[mi], mapStyle == mi, m, mc, 10)) mapStyle = mi;
+                DrawText("Difficulty", 24, 366, 16, GOLD);
+                static const char* DN[4] = {"Easy", "Normal", "Hard", "Expert"};
+                for (int d = 0; d < 4; ++d) if (btn({145.f + d * 112.f, 360, 106, 30}, DN[d], difficulty == d, m, mc, 12)) difficulty = d;
+                DrawText("Opponents", 24, 406, 16, GOLD);
+                for (int n = 1; n <= 3; ++n) if (btn({145.f + (n - 1) * 112.f, 400, 106, 30}, to_string(n).c_str(), opponentCount == n, m, mc, 14)) opponentCount = n;
+                DrawText("Current map supports up to 3 AI castles. More opponents need a larger world/map system.", 500, 407, 12, ink);
+                DrawText("Enemy unit types", 24, 450, 16, GOLD);
                 static const char* EN_[5] = {"Slaves", "Archers", "Assassins", "Horsemen", "Catapults"};
                 int enabled = 0; for (int k = 0; k < 5; k++) enabled += enemyOn[k];
-                for (int k = 0; k < 5; k++) if (btn({150.f + k * 160, 512, 154, 30}, TextFormat("%s  %s", enemyOn[k] ? "ON " : "OFF", EN_[k]), enemyOn[k], m, mc) && !(enemyOn[k] && enabled == 1)) enemyOn[k] = !enemyOn[k];
-                if (btn({SW / 2.f - 140, 560, 280, 46}, "START GAME", false, m, mc, 22)) { startMission(-1, cam); winRecorded = false; screen = 0; }
-                if (btn({24.f, 560, 140, 46}, "Back", false, m, mc, 18)) screen = 0;
-            }
+                for (int k = 0; k < 5; k++) if (btn({145.f + k * 155.f, 444, 150, 30}, TextFormat("%s %s", enemyOn[k] ? "ON" : "OFF", EN_[k]), enemyOn[k], m, mc, 12) && !(enemyOn[k] && enabled == 1)) enemyOn[k] = !enemyOn[k];
+                if (btn({SW / 2.f - 140, 510, 280, 48}, "START BATTLE", false, m, mc, 22)) { startMission(-1, cam); winRecorded = false; screen = 0; }
+                if (btn({24.f, 510, 140, 44}, "Back", false, m, mc, 18)) screen = 0;
             if (screen == 4) { if (!helpOpen) screen = 0; else drawHelp(m, click && !optOpen, true); }
             if (optOpen) optionsUI(m, click, down);
             EndTextureMode(); presentFrame();
