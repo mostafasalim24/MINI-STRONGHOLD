@@ -1,0 +1,7 @@
+HORSE ARCHER UPDATE
+- Preserved transparent RGBA horse archer sprite backgrounds.
+- Added moving and bow-shooting animation cycles.
+- Added long-order gallop and slow-walk near the destination.
+- Added a short horse archer death/fall animation.
+- Hid the Arabic and English lords from Custom Game selection only; their campaign/game lord definitions remain.
+- See README_HORSE_ARCHER_UPDATE.txt for controls and build instructions.
