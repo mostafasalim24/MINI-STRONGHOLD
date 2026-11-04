@@ -2350,6 +2350,7 @@ int main() {
                 for (int k = 0; k < 5; k++) if (btn({145.f + k * 155.f, 444, 150, 30}, TextFormat("%s %s", enemyOn[k] ? "ON" : "OFF", EN_[k]), enemyOn[k], m, mc, 12) && !(enemyOn[k] && enabled == 1)) enemyOn[k] = !enemyOn[k];
                 if (btn({SW / 2.f - 140, 510, 280, 48}, "START BATTLE", false, m, mc, 22)) { startMission(-1, cam); winRecorded = false; screen = 0; }
                 if (btn({24.f, 510, 140, 44}, "Back", false, m, mc, 18)) screen = 0;
+            }
             if (screen == 4) { if (!helpOpen) screen = 0; else drawHelp(m, click && !optOpen, true); }
             if (optOpen) optionsUI(m, click, down);
             EndTextureMode(); presentFrame();
