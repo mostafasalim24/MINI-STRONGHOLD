@@ -637,6 +637,7 @@ void reset() {
     }
     place(KEEP, PKX, PKY, false, keepStyle);
     place(GRANARY, PKX + 3, PKY + 1, false); // starting food storage
+    place(STORAGE, PKX + 3, PKY + 4, false); // starting resource depot for woodcutters
     for (size_t i = 0; i < EN.size(); i++) {   // each lord starts with only his keep; his AI builds the rest
         Enemy& e = EN[i]; place(KEEP, e.kx, e.ky, true, e.lord); e.ek = (int)B.size() - 1; B.back().lord = e.lord; B.back().own = (int)i;
         const Lord& L = LORDS[e.lord];
@@ -803,6 +804,7 @@ vector<Worker> WK;
 int workerKind(int bt) { switch (bt) { case WOOD: return 0; case WHEAT: return 1; case APPLE: return 2; case DATE: return 3; case GRAPE: return 4; } return -1; }
 Vector2 doorPos(const Building& b) { float s = sizeOf(b.type) * TS; return {b.x * TS + s / 2, b.y * TS + s + 5}; }
 int nearestGranary(Vector2 from) { int best = -1; float bd = 1e9f; for (size_t i = 0; i < B.size(); i++) if (!B[i].dead && !B[i].enemy && B[i].type == GRANARY && built(B[i])) { float d = dist(from, doorPos(B[i])); if (d < bd) { bd = d; best = (int)i; } } return best; }
+int nearestStorage(Vector2 from) { int best = -1; float bd = 1e9f; for (size_t i = 0; i < B.size(); i++) if (!B[i].dead && !B[i].enemy && B[i].type == STORAGE && built(B[i])) { float d = dist(from, doorPos(B[i])); if (d < bd) { bd = d; best = (int)i; } } return best; }
 Vector2 pickWorkSpot(const Building& b) {
     Vector2 c = center(b);
     if (b.type == WOOD) {   // the lumberjack walks to a tree nearby
@@ -836,15 +838,17 @@ void updateWorkers(float dt) {
             case 1: w.moving = false; w.t += dt;
                 if (b.type == WOOD && fmodf(w.anim, 0.9f) < dt * 1.01f && inView(iso(w.x, w.y), 40)) { sfx(SFX_HIT, 0.12f, 0.45f); addPart(3, w.x, w.y, 8, 1); }
                 if (w.t >= (b.type == WOOD ? 3.6f : 4.2f)) {
-                    int gi = nearestGranary(d);
-                    if (gi >= 0 && workerKind(b.type) > 0) { Vector2 gd = doorPos(B[gi]); w.tx = gd.x; w.ty = gd.y; w.cargo = workerKind(b.type); w.st = 2; }
+                    int kind = workerKind(b.type);
+                    int gi = kind == 0 ? nearestStorage(d) : nearestGranary(d);
+                    if (gi >= 0 && kind >= 0) { Vector2 gd = doorPos(B[gi]); w.tx = gd.x; w.ty = gd.y; w.cargo = kind; w.st = 2; }
                     else { w.st = 3; w.t = 0; }
                 }
                 break;
             case 2: if (walkTo(w, w.tx, w.ty, dt, 26)) {
-                    int gi = nearestGranary({w.x, w.y});
+                    int gi = w.cargo == 0 ? nearestStorage({w.x, w.y}) : nearestGranary({w.x, w.y});
                     if (gi >= 0 && dist({w.x, w.y}, doorPos(B[gi])) < 90) {
-                        if (w.cargo == 1) grain += 4; else if (w.cargo == 2) apples += 5;
+                        if (w.cargo == 0) wood += 3;
+                        else if (w.cargo == 1) grain += 4; else if (w.cargo == 2) apples += 5;
                         else if (w.cargo == 3) dates += 4; else if (w.cargo == 4) grapes += 4;
                     }
                     w.cargo = -1; Vector2 sp = pickWorkSpot(b); w.tx = sp.x; w.ty = sp.y; w.st = 0; w.t = 0;
@@ -1019,7 +1023,7 @@ void update(float dt) {
             b.t += dt;
             if (b.t >= 3) { b.t = 0;
                 switch (b.type) {
-                    case WOOD: wood += 3; break; case QUARRY: stone += 2; break; case IRON: iron += 2; break;
+                    case QUARRY: stone += 2; break; case IRON: iron += 2; break;
                     case MILL: grain -= 3; flour += 3; break; case BAKERY: flour -= 3; bread += 4; break;
                     case WINERY: grapes -= 3; wine += 3; break; case CANDLE: wood -= 2; candles += 3; break;
                     case FLETCHER: wood -= 2; bows++; break; case POLE: wood -= 2; spears++; break; case SMITH: iron -= 2; swords++; break; }
