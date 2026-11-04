@@ -1957,8 +1957,8 @@ void topBar() {
 void drawAdvisor(Vector2 m, bool click) {
     Rectangle pr = {120, 40, 720, 440};
     DrawRectangle(0, 0, SW, SH, Color{0, 0, 0, 140});
-    if (SP[S_BOOK].ok) DrawTexturePro(SP[S_BOOK].t, Rectangle{0, 0, (float)SP[S_BOOK].t.width, (float)SP[S_BOOK].t.height}, Rectangle{pr.x - 40, pr.y - 20, 800, 480}, Vector2{0, 0}, 0, Color{255, 255, 255, 60});
-    DrawRectangleRec(pr, Color{225, 205, 160, 245}); DrawRectangleLinesEx(pr, 4, Color{90, 60, 30, 255});
+    if (SP[S_BOOK].ok) DrawTexturePro(SP[S_BOOK].t, Rectangle{0, 0, (float)SP[S_BOOK].t.width, (float)SP[S_BOOK].t.height}, Rectangle{pr.x - 40, pr.y - 20, 800, 480}, Vector2{0, 0}, 0, WHITE);
+    DrawRectangleRec(pr, Color{225, 205, 160, 185}); DrawRectangleLinesEx(pr, 4, Color{90, 60, 30, 255});
     Color ink = {50, 30, 15, 255};
     DrawText("Scribe's Report", (int)pr.x + 220, (int)pr.y + 14, 30, ink);
     if (SP[S_ADVISOR].ok) drawSprite(SP[S_ADVISOR].t, pr.x + 100, pr.y + 330, 0, 290);
