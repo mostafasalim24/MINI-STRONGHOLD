@@ -950,11 +950,10 @@ void update(float dt) {
     if (ecoT >= 5) {
         ecoT = 0;
         static const int RP[4] = {-20, -5, 5, 15}; static const float RM[4] = {0, 0.5f, 1, 2};
-        int need = (int)(pop * RM[ration] / 4);
+        bool granaryReady = hasGranary();
+        int need = granaryReady ? (int)(pop * RM[ration] / 4) : 0;
         auto eat = [&](int& s) { int t = min(s, need); s -= t; need -= t; };
         eat(meat); eat(bread); eat(apples); eat(dates);
-        bool granaryReady = hasGranary();
-        if (!granaryReady) need = 0;
         bool starving = ration > 0 && (!granaryReady || totalFood() == 0);
         gold += (int)(pop * tax * 0.5f); if (gold < 0) gold = 0;
         if (autoTrade) {
@@ -998,8 +997,9 @@ void update(float dt) {
             bool ok = true;
             if ((workerKind(b.type) >= 0 || b.type == BAKERY || b.type == HUNTER) && !hasGranary()) ok = false;
             switch (b.type) {
-                case MILL: ok = grain >= 3; break; case BAKERY: ok = flour >= 3; break; case WINERY: ok = grapes >= 3; break; case CANDLE: ok = wood >= 2; break;
-                case FLETCHER: case POLE: ok = wood >= 2; break; case SMITH: ok = iron >= 2; break; default: break; }   // (the Hunter's Hut needs only a peasant; its hunter brings the meat)
+                case MILL: ok = ok && grain >= 3; break; case BAKERY: ok = ok && flour >= 3; break; case WINERY: ok = ok && grapes >= 3; break; case CANDLE: ok = ok && wood >= 2; break;
+                case FLETCHER: case POLE: ok = ok && wood >= 2; break; case SMITH: ok = ok && iron >= 2; break; default: break; }
+            if ((workerKind(b.type) >= 0 || b.type == BAKERY || b.type == HUNTER) && !hasGranary()) ok = false;
             b.working = ok; if (!ok) continue;
             b.t += dt;
             if (b.t >= 3) { b.t = 0;
