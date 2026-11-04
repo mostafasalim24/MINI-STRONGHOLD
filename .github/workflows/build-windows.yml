@@ -22,7 +22,7 @@ jobs:
       - name: Compile Mini Stronghold
         shell: msys2 {0}
         run: |
-          g++ stronghold_game_english.cpp -o StrongholdGame.exe -std=c++17 -O2 -Wall -Wextra -I/ucrt64/include -L/ucrt64/lib -lraylib -lopengl32 -lgdi32 -lwinmm -luser32 -lshell32
+          g++ stronghold_game_english.cpp -o StrongholdGame.exe -std=c++17 -O2 -Wall -Wextra -I/ucrt64/include -L/ucrt64/lib -lraylib -lglfw3 -lopengl32 -lgdi32 -lwinmm -luser32 -lshell32
       - name: Upload game executable
         uses: actions/upload-artifact@v4
         with:
