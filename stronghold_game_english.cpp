@@ -134,7 +134,7 @@ bool cheatInstant = false, cheatGod = false, cheatUsed = false, cheatOpen = fals
 // ---------------- settings (saved to settings.cfg) ----------------
 struct Settings {
     float master = 0.8f, music = 0.6f, sfx = 0.8f;
-    bool fullscreen = false; int winScale = 0;           // 0 = Full HD, 1 = QHD 1440p, 2 = 4K UHD
+    bool fullscreen = true; int winScale = 0;           // 0 = Full HD, 1 = QHD 1440p, 2 = 4K UHD
     bool vsync = true; int fpsCap = 1;                   // 0 = 30, 1 = 60, 2 = 120, 3 = unlimited
     int quality = 2;                                     // 0 low, 1 medium, 2 high (presets)
     bool shadows = true, clouds = true, vignette = true, detail = true, smooth = true, showFps = false;
@@ -1677,7 +1677,7 @@ void optionsUI(Vector2 m, bool click, bool down) {
     lab("Screen mode", pr.y + 204);
     if (btn({cx, pr.y + 202, 145, 26}, "Windowed", !cfg.fullscreen, m, click, 14) && cfg.fullscreen) { cfg.fullscreen = false; applyDisplay(); changed = true; }
     if (btn({cx + 155, pr.y + 202, 145, 26}, "Full screen", cfg.fullscreen, m, click, 14) && !cfg.fullscreen) { cfg.fullscreen = true; applyDisplay(); changed = true; }
-    lab("Window resolution", pr.y + 238);
+    lab("Window size (Windowed mode)", pr.y + 238);
     static const char* WN[3] = {"Full HD 1920x1080", "QHD 2560x1440", "4K UHD 3840x2160"};
     static const char* WR[3] = {"1080p", "1440p", "4K"};
     for (int i = 0; i < 3; i++) if (btn({cx + i * 101.f, pr.y + 236, 97, 26}, WR[i], cfg.winScale == i, m, click, 13)) { cfg.winScale = i; if (!cfg.fullscreen) applyDisplay(); changed = true; }
@@ -1979,10 +1979,9 @@ void drawShadows() {
     for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++) if (occ[y][x] == -2) { Vector2 p = iso((x + 0.5f) * TS, (y + 0.5f) * TS); if (!inView(p, 40)) continue; DrawEllipse((int)p.x + 9, (int)p.y + 1, 13, 5, Color{0, 0, 0, 50}); }
 }
 
-void presentFrame() {   // scales the 960x688 virtual screen into the real window (letter-boxed)
-    float sc = min(GetScreenWidth() / (float)SW, GetScreenHeight() / (float)SH), ox = (GetScreenWidth() - SW * sc) / 2, oy = (GetScreenHeight() - SH * sc) / 2;
+void presentFrame() {   // fill the complete display; the render texture is stretched to the current output size
     BeginDrawing(); ClearBackground(BLACK);
-    DrawTexturePro(screenRT.texture, Rectangle{0, 0, (float)SW, -(float)SH}, Rectangle{ox, oy, SW * sc, SH * sc}, Vector2{0, 0}, 0, WHITE);
+    DrawTexturePro(screenRT.texture, Rectangle{0, 0, (float)SW, -(float)SH}, Rectangle{0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, Vector2{0, 0}, 0, WHITE);
     EndDrawing();
 }
 
@@ -2173,7 +2172,10 @@ void drawCheatMenu(Vector2 m, bool click) {
 }
 
 int main() {
-    loadSettings(); loadCampaign();
+    loadSettings();
+    // Always launch in full-screen mode. The player can switch to Windowed in Options for the current session.
+    cfg.fullscreen = true;
+    loadCampaign();
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | (cfg.vsync ? FLAG_VSYNC_HINT : 0));
     InitWindow(WIN_W[cfg.winScale], WIN_H[cfg.winScale], "Mini Stronghold - English Edition"); SetWindowMinSize(480, 344); SetWindowPosition(20, 30); SetExitKey(KEY_NULL);
     initAudio(); loadAssets();
@@ -2184,7 +2186,7 @@ int main() {
     int build = 0; Vector2 ds = {0, 0}; bool drag = false; int screen = 0, selMission = 1; bool quitGame = false, winRecorded = false;
     while (!WindowShouldClose() && !quitGame) {
         float dt = min(GetFrameTime(), 0.1f);
-        { float sc = min(GetScreenWidth() / (float)SW, GetScreenHeight() / (float)SH), ox = (GetScreenWidth() - SW * sc) / 2, oy = (GetScreenHeight() - SH * sc) / 2; SetMouseOffset((int)-ox, (int)-oy); SetMouseScale(1 / sc, 1 / sc); }
+        { float sx = GetScreenWidth() / (float)SW, sy = GetScreenHeight() / (float)SH; SetMouseOffset(0, 0); SetMouseScale(1 / sx, 1 / sy); }
         Vector2 m = GetMousePosition(); bool inMap = m.y < MAPH && m.y >= 0, click = IsMouseButtonPressed(MOUSE_LEFT_BUTTON), down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
         if (IsKeyPressed(KEY_F11)) { cfg.fullscreen = !cfg.fullscreen; applyDisplay(); saveSettings(); }
         musicTick(dt, inMenu ? 0 : (battleNear && !gameOver && !won ? 2 : 1));
