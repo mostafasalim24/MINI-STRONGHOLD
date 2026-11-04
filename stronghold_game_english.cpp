@@ -20,7 +20,7 @@ const int EKX = 46, EKY = 16;    // enemy keep (top-left tile); its castle is bu
 
 // ---------------- data tables ----------------
 enum BType { KEEP, WOOD, QUARRY, IRON, WHEAT, HOUSE, FLETCHER, POLE, SMITH, BARRACKS, TENT, TOWER, WALL, GATE, CHURCH, INN, MARKET, MILL, RTOWER, STORAGE, GRANARY,
-             APPLE, GRAPE, DATE, BAKERY, WINERY, CANDLE, SIEGE, ENGGUILD, HEALER, HUNTER, NB };
+             APPLE, GRAPE, DATE, BAKERY, WINERY, CANDLE, SIEGE, ENGGUILD, HEALER, HUNTER, GARDEN, NB };
 struct BInfo { const char *name, *tag; int wood, stone, gold, hp; Color col; };
 const BInfo INFO[NB] = {
     {"Keep", "Kp", 0, 0, 0, 1500, {170, 140, 80, 255}},
@@ -53,13 +53,13 @@ const BInfo INFO[NB] = {
     {"Siege Workshop", "Sw", 20, 30, 100, 240, {130, 95, 60, 255}},
     {"Engineer Guild", "Eg", 20, 40, 150, 240, {110, 120, 135, 255}},
     {"Healer", "Hl", 20, 0, 60, 160, {240, 240, 235, 255}},
-    {"Hunter's Hut", "Hn", 20, 0, 0, 120, {120, 150, 80, 255}}};
-static_assert(NB == 31, "Building table changed unexpectedly");
+    {"Hunter's Hut", "Hn", 20, 0, 0, 120, {120, 150, 80, 255}}, {"Garden", "Gd", 12, 0, 0, 90, {70, 145, 65, 255}}};
+static_assert(NB == 32, "Building table changed unexpectedly");
 // Keep construction prices approachable: no building exceeds 20 wood or 50 stone.
-const int SZ[NB] = {2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 2, 1, 1, 1, 2, 2, 2, 2, 2, 1, 2, 2, 1, 1};  // footprint in tiles (n x n)
+const int SZ[NB] = {2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 2, 1, 1, 1, 2, 2, 2, 2, 2, 1, 2, 2, 1, 1, 1};  // footprint in tiles (n x n)
 inline int sizeOf(int t) { return SZ[t]; }
-const bool WORKS[NB] = {0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1};  // needs a peasant to work
-const float BH[NB] = {90, 14, 12, 16, 3, 22, 22, 22, 22, 28, 42, 70, 34, 36, 64, 40, 34, 48, 56, 24, 32, 40, 30, 40, 40, 40, 24, 44, 40, 38, 34};  // fallback heights, used for mouse picking
+const bool WORKS[NB] = {0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0};  // needs a peasant to work
+const float BH[NB] = {90, 14, 12, 16, 3, 22, 22, 22, 22, 28, 42, 70, 34, 36, 64, 40, 34, 48, 56, 24, 32, 40, 30, 40, 40, 40, 24, 44, 40, 38, 34, 8};  // fallback heights, used for mouse picking
 
 enum UType { ARCHER, SPEAR, SWORD, SLAVE, EARCHER, ESWORD, CATA, EHORSE, HORSE_ARCHER, KNIGHT, MACE, CROSSBOW, ENGINEER, RAM, LONGBOW, PIKEMAN, ARAB_SWORD, ARAB_GUARD, CAMEL_ARCHER, DEMOLISHER, NU };
 struct UInfo { const char* name; float hp, dmg, range, speed, cd; Color col; };
@@ -80,7 +80,7 @@ const UInfo UINFO[NU] = {
     {"Demolisher", 330, 95, 18, 24, 2.0f, {105, 75, 45, 255}}};
 
 struct Building { int type, x, y; float hp, t, fire; bool dead, working, enemy; int style; bool fed = false; int lord = -1, own = -1; float prog = 1.f; };   // prog: construction progress 0..1
-const float BUILD_TIME[NB] = {0, 3, 3.5f, 4, 5, 3.5f, 4, 4, 5, 7, 4, 8, 1.5f, 3, 11, 7, 5, 7, 10, 3.5f, 4, 4.5f, 4.5f, 4.5f, 6, 6, 4, 8, 8, 5, 4};  // seconds to build
+const float BUILD_TIME[NB] = {0, 3, 3.5f, 4, 5, 3.5f, 4, 4, 5, 7, 4, 8, 1.5f, 3, 11, 7, 5, 7, 10, 3.5f, 4, 4.5f, 4.5f, 4.5f, 6, 6, 4, 8, 8, 5, 4, 3};  // seconds to build
 inline bool built(const Building& b) { return b.prog >= 1.f; }
 struct Unit { Vector2 p, dst; int type; bool enemy, moving, sel; float hp, cd, face, anim; bool guard; vector<Vector2> path; Vector2 goal; float repT, stuck; int own = -1; bool army = false; };
 struct Proj { Vector2 a, b; float t, len, dmg; bool enemy, siege; };
@@ -129,6 +129,8 @@ float autoTradeT = 0.f;
 float enemyBuildT = 0, warningT = 0; string warning;
 int selectedBuilding = -1;
 int totalFood() { return bread + apples + dates + meat; }
+bool hasGranary() { for (const auto& b : B) if (!b.dead && !b.enemy && b.type == GRANARY && b.prog >= 1.f) return true; return false; }
+int gardenCount() { int n = 0; for (const auto& b : B) if (!b.dead && !b.enemy && b.type == GARDEN && b.prog >= 1.f) n++; return n; }
 bool cheatInstant = false, cheatGod = false, cheatUsed = false, cheatOpen = false; int cheatCap = 0;   // cheat menu state (only usable when Options > Cheats is ON)
 
 // ---------------- settings (saved to settings.cfg) ----------------
@@ -634,6 +636,7 @@ void reset() {
         }
     }
     place(KEEP, PKX, PKY, false, keepStyle);
+    place(GRANARY, PKX + 3, PKY + 1, false); // starting food storage
     for (size_t i = 0; i < EN.size(); i++) {   // each lord starts with only his keep; his AI builds the rest
         Enemy& e = EN[i]; place(KEEP, e.kx, e.ky, true, e.lord); e.ek = (int)B.size() - 1; B.back().lord = e.lord; B.back().own = (int)i;
         const Lord& L = LORDS[e.lord];
@@ -757,7 +760,7 @@ bool trainOne(int ti, int br) {
     const TInfo& t = TR[ti]; int* stock = t.res == 0 ? &bows : t.res == 1 ? &spears : t.res == 2 ? &swords : nullptr;
     // Barracks consume weapon stock; the Arabic War Tent recruits with gold only.
     bool arabTent = B[br].type == TENT;
-    if ((!arabTent && stock && *stock < 1) || gold < t.gold || wood < t.wood || pop < 1) return false;
+    if ((!arabTent && stock && *stock < 1) || gold < t.gold || wood < t.wood || pop - employed < 1) return false;
     if (!arabTent && stock) *stock -= 1;
     gold -= t.gold; wood -= t.wood; pop--;
     int s = sizeOf(B[br].type); Vector2 sp = freeNear({(B[br].x + s / 2.0f) * TS, (B[br].y + s + 0.5f) * TS});
@@ -770,7 +773,7 @@ void trainMany(int ti, int n, int br = -1) {   // n < 0: train as many as the st
     if (br < 0) { say(string("You need a ") + (ti == 16 ? "Engineer Guild" : ti >= 8 ? "Siege Workshop" : "Barracks") + " first!"); sfx(SFX_DENY); return; }
     int done = 0; while ((n < 0 || done < n) && done < 200) { if (!trainOne(ti, br)) break; done++; }
     if (done) { sfx(SFX_TRAIN, 0.55f, 0.1f); say(TextFormat("Trained %d %s", done, TR[ti].name)); }
-    else { sfx(SFX_DENY); say("Need a weapon, gold and a free peasant!"); }
+    else { sfx(SFX_DENY); say("Need weapons, gold and an idle peasant!"); }
 }
 
 // ---------------- market goods ----------------
@@ -781,10 +784,11 @@ int* goodPtr(int i) { int* g[NG] = {&wood, &stone, &iron, &bread, &apples, &date
 
 Vector2 iso(float wx, float wy); bool inView(Vector2 p, float mg);
 // ---------------- workers (animated peasants at woodcutters and farms) ----------------
-struct Worker { int bi; float x, y, tx, ty, t, anim; int st; bool right, moving; };   // st: 0 walk to work spot, 1 work, 2 carry back, 3 rest
+struct Worker { int bi; float x, y, tx, ty, t, anim; int st; bool right, moving; int cargo = -1; };   // st: 0 walk to work spot, 1 work, 2 carry back, 3 rest
 vector<Worker> WK;
 int workerKind(int bt) { switch (bt) { case WOOD: return 0; case WHEAT: return 1; case APPLE: return 2; case DATE: return 3; case GRAPE: return 4; } return -1; }
 Vector2 doorPos(const Building& b) { float s = sizeOf(b.type) * TS; return {b.x * TS + s / 2, b.y * TS + s + 5}; }
+int nearestGranary(Vector2 from) { int best = -1; float bd = 1e9f; for (size_t i = 0; i < B.size(); i++) if (!B[i].dead && !B[i].enemy && B[i].type == GRANARY && built(B[i])) { float d = dist(from, doorPos(B[i])); if (d < bd) { bd = d; best = (int)i; } } return best; }
 Vector2 pickWorkSpot(const Building& b) {
     Vector2 c = center(b);
     if (b.type == WOOD) {   // the lumberjack walks to a tree nearby
@@ -809,7 +813,7 @@ void updateWorkers(float dt) {
     for (size_t i = 0; i < B.size(); i++) {
         const Building& b = B[i]; if (workerKind(b.type) < 0 || b.dead || b.enemy || !b.working) continue;
         bool has = false; for (auto& w : WK) if (w.bi == (int)i) { has = true; break; }
-        if (!has) { Vector2 d = doorPos(b); Worker w; w.bi = (int)i; w.x = w.tx = d.x; w.y = w.ty = d.y; w.t = (rand() % 50) / 100.f; w.anim = (float)(rand() % 100); w.st = 3; w.right = true; w.moving = false; WK.push_back(w); }
+        if (!has) { Vector2 d = doorPos(b); Worker w; w.bi = (int)i; w.x = w.tx = d.x; w.y = w.ty = d.y; w.t = (rand() % 50) / 100.f; w.anim = (float)(rand() % 100); w.st = 3; w.right = true; w.moving = false; w.cargo = -1; WK.push_back(w); }
     }
     for (auto& w : WK) {
         const Building& b = B[w.bi]; Vector2 d = doorPos(b); w.anim += dt;
@@ -817,10 +821,21 @@ void updateWorkers(float dt) {
             case 0: if (walkTo(w, w.tx, w.ty, dt, 30)) { w.st = 1; w.t = 0; } break;
             case 1: w.moving = false; w.t += dt;
                 if (b.type == WOOD && fmodf(w.anim, 0.9f) < dt * 1.01f && inView(iso(w.x, w.y), 40)) { sfx(SFX_HIT, 0.12f, 0.45f); addPart(3, w.x, w.y, 8, 1); }
-                if (w.t >= (b.type == WOOD ? 3.6f : 4.2f)) w.st = 2;
+                if (w.t >= (b.type == WOOD ? 3.6f : 4.2f)) {
+                    int gi = nearestGranary(d);
+                    if (gi >= 0 && workerKind(b.type) > 0) { Vector2 gd = doorPos(B[gi]); w.tx = gd.x; w.ty = gd.y; w.cargo = workerKind(b.type); w.st = 2; }
+                    else { w.st = 3; w.t = 0; }
+                }
                 break;
-            case 2: if (walkTo(w, d.x, d.y, dt, 26)) { w.st = 3; w.t = 0; } break;
-            default: w.moving = false; w.t += dt; if (w.t > 0.9f) { Vector2 sp = pickWorkSpot(b); w.tx = sp.x; w.ty = sp.y; w.st = 0; }
+            case 2: if (walkTo(w, w.tx, w.ty, dt, 26)) {
+                    int gi = nearestGranary({w.x, w.y});
+                    if (gi >= 0 && dist({w.x, w.y}, doorPos(B[gi])) < 90) {
+                        if (w.cargo == 1) grain += 4; else if (w.cargo == 2) apples += 5;
+                        else if (w.cargo == 3) dates += 4; else if (w.cargo == 4) grapes += 4;
+                    }
+                    w.cargo = -1; Vector2 sp = pickWorkSpot(b); w.tx = sp.x; w.ty = sp.y; w.st = 0; w.t = 0;
+                } break;
+            default: w.moving = false; w.t += dt; if (w.t > 0.9f && nearestGranary(d) >= 0) { Vector2 sp = pickWorkSpot(b); w.tx = sp.x; w.ty = sp.y; w.st = 0; }
         }
     }
 }
@@ -938,7 +953,9 @@ void update(float dt) {
         int need = (int)(pop * RM[ration] / 4);
         auto eat = [&](int& s) { int t = min(s, need); s -= t; need -= t; };
         eat(meat); eat(bread); eat(apples); eat(dates);
-        bool starving = ration > 0 && totalFood() == 0;
+        bool granaryReady = hasGranary();
+        if (!granaryReady) need = 0;
+        bool starving = ration > 0 && (!granaryReady || totalFood() == 0);
         gold += (int)(pop * tax * 0.5f); if (gold < 0) gold = 0;
         if (autoTrade) {
             if (bows < 4 && wood >= 2 && !autoSellOn[0]) { wood -= 2; bows++; }
@@ -952,7 +969,8 @@ void update(float dt) {
         }
         pbonus = min(25, innServed * 6 + churchServed * 7);
         int kinds = (bread > 0) + (apples > 0) + (dates > 0) + (meat > 0);
-        int targetPopularity = max(0, min(100, 65 + RP[ration] - 6 * tax + pbonus + (kinds > 1 ? (kinds - 1) * 3 : 0)));
+        int gardenBonus = min(15, gardenCount() * 3);
+        int targetPopularity = max(0, min(100, 65 + RP[ration] - 6 * tax + pbonus + gardenBonus + (kinds > 1 ? (kinds - 1) * 3 : 0)));
         if (starving) popularity = max(0, popularity - 4); // slow hunger penalty, every 5 seconds
         else if (popularity < targetPopularity) popularity = min(targetPopularity, popularity + 2);
         else if (popularity > targetPopularity) popularity = max(targetPopularity, popularity - 1);
@@ -978,6 +996,7 @@ void update(float dt) {
             if (jobs <= 0) { b.working = false; continue; }
             jobs--;
             bool ok = true;
+            if ((workerKind(b.type) >= 0 || b.type == BAKERY || b.type == HUNTER) && !hasGranary()) ok = false;
             switch (b.type) {
                 case MILL: ok = grain >= 3; break; case BAKERY: ok = flour >= 3; break; case WINERY: ok = grapes >= 3; break; case CANDLE: ok = wood >= 2; break;
                 case FLETCHER: case POLE: ok = wood >= 2; break; case SMITH: ok = iron >= 2; break; default: break; }   // (the Hunter's Hut needs only a peasant; its hunter brings the meat)
@@ -986,7 +1005,6 @@ void update(float dt) {
             if (b.t >= 3) { b.t = 0;
                 switch (b.type) {
                     case WOOD: wood += 3; break; case QUARRY: stone += 2; break; case IRON: iron += 2; break;
-                    case WHEAT: grain += 4; break; case APPLE: apples += 5; break; case DATE: dates += 4; break; case GRAPE: grapes += 4; break;
                     case MILL: grain -= 3; flour += 3; break; case BAKERY: flour -= 3; bread += 4; break;
                     case WINERY: grapes -= 3; wine += 3; break; case CANDLE: wood -= 2; candles += 3; break;
                     case FLETCHER: wood -= 2; bows++; break; case POLE: wood -= 2; spears++; break; case SMITH: iron -= 2; swords++; break; }
@@ -1276,6 +1294,7 @@ void drawBuildingFinal(const Building& b) {
         DrawLineEx(isoH(xc, yc, 26), isoH(xc, yc, 40), 2, BROWN);
         Vector2 f0 = isoH(xc, yc, 40); DrawRectangle((int)f0.x, (int)f0.y, 11, 8, WHITE); DrawLineEx({f0.x + 5.5f, f0.y + 1}, {f0.x + 5.5f, f0.y + 7}, 2, rc); DrawLineEx({f0.x + 2, f0.y + 4}, {f0.x + 9, f0.y + 4}, 2, rc);
         float pulse = 0.5f + 0.5f * sinf(gtime * 3); DrawCircleV(isoH(xc, yc, 50), 2 + pulse * 2, Color{90, 255, 130, 200}); top = 56; break; }
+    case GARDEN: { quad(isoH(x0+1,y0+1,0), isoH(x1-1,y0+1,0), isoH(x1-1,y1-1,0), isoH(x0+1,y1-1,0), {95,125,58,255}); box(x0+3,y0+3,x1-3,y1-3,0,2,{125,92,55,255}); for(int i=0;i<5;i++){ Vector2 fp=isoH(x0+5+i*3.2f,y0+7+(i%2)*3,6); DrawCircleV(fp,2.5f,i%2?Color{230,90,120,255}:Color{245,205,70,255}); } Vector2 tr=isoH(x1-8,y1-8,4); DrawLineEx(tr,{tr.x,tr.y-14},3,BROWN); DrawCircleV({tr.x,tr.y-17},9,{45,125,48,255}); top=25; break; }
     case HUNTER: {
         house({150, 108, 66, 255}, {72, 105, 62, 255}, 13, 10);
         Vector2 a0 = isoH(xc, y1 - 2, 21);   // antlers over the door
@@ -1663,50 +1682,42 @@ void slider(int id, Rectangle r, float& v, Vector2 m, bool pressed, bool down) {
 }
 bool optOpen = false, advOpen = false, helpOpen = false, quitMenu = false;
 void optionsUI(Vector2 m, bool click, bool down) {
-    Rectangle pr = {150, 28, 660, 632};
+    Rectangle pr = {190, 74, 580, 540};
     DrawRectangle(0, 0, SW, SH, Color{0, 0, 0, 150}); DrawRectangleRec(pr, Color{35, 25, 15, 248}); DrawRectangleLinesEx(pr, 3, GOLD);
-    DrawText("OPTIONS", (int)pr.x + 20, (int)pr.y + 12, 26, GOLD);
-    int lx = (int)pr.x + 24; float cx = pr.x + 300; bool changed = false;
-    auto lab = [&](const char* t, float y) { DrawText(t, lx, (int)y + 4, 16, RAYWHITE); };
-    auto head = [&](const char* t, float y) { DrawText(t, lx, (int)y, 16, GOLD); DrawLine(lx, (int)y + 20, (int)(pr.x + pr.width - 24), (int)y + 20, Color{120, 95, 60, 255}); };
-    head("SOUND", pr.y + 52);
-    lab("Master volume", pr.y + 80); slider(1, {cx, pr.y + 86, 300, 12}, cfg.master, m, click, down);
-    lab("Music volume", pr.y + 110); slider(2, {cx, pr.y + 116, 300, 12}, cfg.music, m, click, down);
-    lab("Sound effects", pr.y + 140); slider(3, {cx, pr.y + 146, 300, 12}, cfg.sfx, m, click, down);
-    head("DISPLAY", pr.y + 176);
-    lab("Screen mode", pr.y + 204);
-    if (btn({cx, pr.y + 202, 145, 26}, "Windowed", !cfg.fullscreen, m, click, 14) && cfg.fullscreen) { cfg.fullscreen = false; applyDisplay(); changed = true; }
-    if (btn({cx + 155, pr.y + 202, 145, 26}, "Full screen", cfg.fullscreen, m, click, 14) && !cfg.fullscreen) { cfg.fullscreen = true; applyDisplay(); changed = true; }
-    lab("Window size (Windowed mode)", pr.y + 238);
-    static const char* WN[3] = {"Full HD 1920x1080", "QHD 2560x1440", "4K UHD 3840x2160"};
-    static const char* WR[3] = {"1080p", "1440p", "4K"};
-    for (int i = 0; i < 3; i++) if (btn({cx + i * 101.f, pr.y + 236, 97, 26}, WR[i], cfg.winScale == i, m, click, 13)) { cfg.winScale = i; if (!cfg.fullscreen) applyDisplay(); changed = true; }
-    DrawText(WN[cfg.winScale], (int)cx + 310, (int)pr.y + 242, 12, LIGHTGRAY);
-    lab("VSync", pr.y + 272); if (btn({cx, pr.y + 270, 145, 26}, cfg.vsync ? "ON" : "OFF", cfg.vsync, m, click, 14)) { cfg.vsync = !cfg.vsync; applyDisplay(); changed = true; }
-    lab("FPS limit", pr.y + 306);
-    static const char* FN[4] = {"30", "60", "120", "None"};
-    for (int i = 0; i < 4; i++) if (btn({cx + i * 75.f, pr.y + 304, 71, 26}, FN[i], cfg.fpsCap == i, m, click, 14)) { cfg.fpsCap = i; applyDisplay(); changed = true; }
-    lab("Show FPS", pr.y + 340); if (btn({cx, pr.y + 338, 90, 26}, cfg.showFps ? "ON" : "OFF", cfg.showFps, m, click, 14)) { cfg.showFps = !cfg.showFps; changed = true; }
-    DrawText("Cheats", (int)cx + 104, (int)pr.y + 344, 15, cfg.cheats ? GOLD : RAYWHITE);
-    if (btn({cx + 160, pr.y + 338, 80, 26}, cfg.cheats ? "ON" : "OFF", cfg.cheats, m, click, 14)) { cfg.cheats = !cfg.cheats; if (!cfg.cheats) { cheatInstant = cheatGod = false; cheatOpen = false; } changed = true; }
-    if (cfg.cheats && btn({cx + 246, pr.y + 338, 90, 26}, "Menu (F9)", false, m, click, 13) && !inMenu) { cheatOpen = true; optOpen = false; }
-    if (cfg.cheats) DrawText("A game that uses cheats will not unlock missions.", (int)cx + 104, (int)pr.y + 366, 10, Color{255, 200, 140, 255});
-    head("GRAPHICS", pr.y + 374);
-    lab("Quality preset", pr.y + 402);
-    static const char* QN[3] = {"Low", "Medium", "High"};
-    for (int i = 0; i < 3; i++) if (btn({cx + i * 101.f, pr.y + 400, 97, 26}, QN[i], cfg.quality == i, m, click, 14)) { applyQuality(i); applyFilters(); changed = true; }
-    auto tog = [&](const char* name, bool& v, float y) { lab(name, y); if (btn({cx, y - 2, 145, 24}, v ? "ON" : "OFF", v, m, click, 13)) { v = !v; changed = true; } };
-    tog("Shadows", cfg.shadows, pr.y + 438); tog("Drifting clouds", cfg.clouds, pr.y + 466); tog("Lighting / vignette", cfg.vignette, pr.y + 494);
-    tog("Ground detail (grass, waves)", cfg.detail, pr.y + 522);
-    { bool before = cfg.smooth; tog("Smooth textures", cfg.smooth, pr.y + 550); if (before != cfg.smooth) applyFilters(); }
-    lab("Particles", pr.y + 578);
-    static const char* PN[3] = {"Off", "Few", "All"};
-    for (int i = 0; i < 3; i++) if (btn({cx + i * 101.f, pr.y + 576, 97, 24}, PN[i], cfg.particles == i, m, click, 13)) { cfg.particles = i; changed = true; }
-    if (!inMenu && btn({pr.x + 20, pr.y + pr.height - 42, 200, 32}, "Quit to main menu", false, m, click, 15)) { quitMenu = true; optOpen = false; }
-    if (btn({pr.x + pr.width - 150, pr.y + pr.height - 42, 130, 32}, "Close", false, m, click, 16)) { optOpen = false; changed = true; }
+    DrawText("OPTIONS", (int)pr.x + 20, (int)pr.y + 12, 24, GOLD);
+    int lx = (int)pr.x + 20; float cx = pr.x + 205; bool changed = false;
+    auto lab = [&](const char* t, float y) { DrawText(t, lx, (int)y + 3, 13, RAYWHITE); };
+    auto head = [&](const char* t, float y) { DrawText(t, lx, (int)y, 14, GOLD); DrawLine(lx, (int)y + 18, (int)(pr.x + pr.width - 20), (int)y + 18, Color{120, 95, 60, 255}); };
+    auto tog = [&](const char* name, bool& v, float y) { lab(name, y); if (btn({cx, y - 2, 115, 22}, v ? "ON" : "OFF", v, m, click, 12)) { v = !v; changed = true; } };
+    head("SOUND", pr.y + 42);
+    lab("Master", pr.y + 66); slider(1, {cx, pr.y + 72, 330, 10}, cfg.master, m, click, down);
+    lab("Music", pr.y + 90); slider(2, {cx, pr.y + 96, 330, 10}, cfg.music, m, click, down);
+    lab("Effects", pr.y + 114); slider(3, {cx, pr.y + 120, 330, 10}, cfg.sfx, m, click, down);
+    head("DISPLAY", pr.y + 144);
+    lab("Screen mode", pr.y + 168);
+    if (btn({cx, pr.y + 166, 145, 23}, "Windowed", !cfg.fullscreen, m, click, 12) && cfg.fullscreen) { cfg.fullscreen = false; applyDisplay(); changed = true; }
+    if (btn({cx + 153, pr.y + 166, 145, 23}, "Full screen", cfg.fullscreen, m, click, 12) && !cfg.fullscreen) { cfg.fullscreen = true; applyDisplay(); changed = true; }
+    lab("Window size", pr.y + 194);
+    static const char* WN[3] = {"Full HD", "QHD 1440p", "4K UHD"}; static const char* WR[3] = {"1080p", "1440p", "4K"};
+    for (int i = 0; i < 3; i++) if (btn({cx + i * 83.f, pr.y + 192, 79, 23}, WR[i], cfg.winScale == i, m, click, 11)) { cfg.winScale = i; if (!cfg.fullscreen) applyDisplay(); changed = true; }
+    DrawText(WN[cfg.winScale], (int)cx + 260, (int)pr.y + 198, 10, LIGHTGRAY);
+    lab("VSync", pr.y + 220); if (btn({cx, pr.y + 218, 90, 22}, cfg.vsync ? "ON" : "OFF", cfg.vsync, m, click, 12)) { cfg.vsync = !cfg.vsync; applyDisplay(); changed = true; }
+    lab("FPS cap", pr.y + 246); static const char* FN[4] = {"30", "60", "120", "None"};
+    for (int i = 0; i < 4; i++) if (btn({cx + i * 62.f, pr.y + 244, 58, 22}, FN[i], cfg.fpsCap == i, m, click, 11)) { cfg.fpsCap = i; applyDisplay(); changed = true; }
+    lab("Show FPS", pr.y + 272); if (btn({cx, pr.y + 270, 70, 22}, cfg.showFps ? "ON" : "OFF", cfg.showFps, m, click, 12)) { cfg.showFps = !cfg.showFps; changed = true; }
+    DrawText("Cheats", (int)cx + 90, (int)pr.y + 274, 12, cfg.cheats ? GOLD : RAYWHITE);
+    if (btn({cx + 140, pr.y + 270, 70, 22}, cfg.cheats ? "ON" : "OFF", cfg.cheats, m, click, 12)) { cfg.cheats = !cfg.cheats; if (!cfg.cheats) { cheatInstant = cheatGod = false; cheatOpen = false; } changed = true; }
+    if (cfg.cheats && btn({cx + 216, pr.y + 270, 82, 22}, "Menu F9", false, m, click, 11) && !inMenu) { cheatOpen = true; optOpen = false; }
+    head("GRAPHICS", pr.y + 300); lab("Quality", pr.y + 324); static const char* QN[3] = {"Low", "Medium", "High"};
+    for (int i = 0; i < 3; i++) if (btn({cx + i * 83.f, pr.y + 322, 79, 22}, QN[i], cfg.quality == i, m, click, 11)) { applyQuality(i); applyFilters(); changed = true; }
+    tog("Shadows", cfg.shadows, pr.y + 350); tog("Clouds", cfg.clouds, pr.y + 374); tog("Vignette", cfg.vignette, pr.y + 398); tog("Ground detail", cfg.detail, pr.y + 422);
+    { bool before = cfg.smooth; tog("Smooth textures", cfg.smooth, pr.y + 446); if (before != cfg.smooth) applyFilters(); }
+    lab("Particles", pr.y + 470); static const char* PN[3] = {"Off", "Few", "All"};
+    for (int i = 0; i < 3; i++) if (btn({cx + i * 83.f, pr.y + 468, 79, 22}, PN[i], cfg.particles == i, m, click, 11)) { cfg.particles = i; changed = true; }
+    if (!inMenu && btn({pr.x + 20, pr.y + pr.height - 38, 180, 28}, "Quit to main menu", false, m, click, 12)) { quitMenu = true; optOpen = false; }
+    if (btn({pr.x + pr.width - 112, pr.y + pr.height - 38, 92, 28}, "Close", false, m, click, 13)) { optOpen = false; changed = true; }
     if (changed) saveSettings();
 }
-
 // ---------------- shop & training popups ----------------
 int openB = -1; // -1 = closed, -2 = market opened via HUD/hotkey, >=0 = building index
 const int T_QTYS[5] = {1, 10, 20, 50, 100};
@@ -1833,7 +1844,7 @@ const char* RN[4] = {"None", "Half", "Full", "Double"};
 int hudTab = 0;
 const int TABS[5][9] = {{WHEAT, APPLE, GRAPE, DATE, MILL, BAKERY, GRANARY, STORAGE, HUNTER},
                         {WOOD, QUARRY, IRON, FLETCHER, POLE, SMITH, WINERY, CANDLE, -1},
-                        {HOUSE, INN, CHURCH, MARKET, -1, -1, -1, -1, -1},
+                        {HOUSE, INN, CHURCH, MARKET, GARDEN, -1, -1, -1, -1},
                         {BARRACKS, TENT, SIEGE, ENGGUILD, HEALER, -1, -1, -1, -1},
                         {TOWER, RTOWER, WALL, GATE, -1, -1, -1, -1, -1}};
 const char* TABN[5] = {"Farms", "Industry", "Town", "Military", "Defense"};
@@ -1842,7 +1853,7 @@ const char* DESC[NB] = {"Your main castle.", "Produces wood.", "Produces stone."
     "Makes swords from iron.", "Recruits eight medieval infantry using weapon stocks.", "Arabic War Tent: recruits desert troops for gold only.", "A tower that fires arrows.", "A wall that blocks enemies.",
     "A gate for your troops.", "Needs candles. Raises popularity.", "Needs wine. Raises popularity.", "Buy and sell resources.", "Grinds grain into flour.", "A stronger tower with longer range.",
     "Stores resources.", "Stores food, +2 peasants.", "Grows apples (food).", "Grows grapes for the Winery.", "Grows dates (food).", "Bakes flour into bread.",
-    "Presses grapes into wine for Inns.", "Makes candles from wood for Churches.", "Builds catapults and battering rams.", "Trains engineers who repair buildings.", "Heals your soldiers inside the green circle.", "A hunter shoots deer, rabbits and boars and brings meat."};
+    "Presses grapes into wine for Inns.", "Makes candles from wood for Churches.", "Builds catapults and battering rams.", "Trains engineers who repair buildings.", "Heals your soldiers inside the green circle.", "A hunter shoots deer, rabbits and boars and brings meat.", "A peaceful garden that improves popularity."};
 string costText(int t) {
     string s; const BInfo& in = INFO[t];
     if (in.wood) s += "W" + to_string(in.wood) + " "; if (in.stone) s += "S" + to_string(in.stone) + " "; if (in.gold) s += "G" + to_string(in.gold);
@@ -1911,7 +1922,7 @@ void hud(Vector2 m, bool click, int& build, Camera2D& cam) {
         else DrawText("DEFEATED", 884, (int)ry, 8, GRAY);
     }
     if (btn({798.f, y0 + 130, 54, 22}, "Opt(O)", false, m, click, 10)) optOpen = true;
-    if (btn({856.f, y0 + 130, 52, 22}, "Adv(F1)", false, m, click, 10)) advOpen = !advOpen;
+    if (btn({856.f, y0 + 130, 52, 22}, "Scribe", false, m, click, 10)) advOpen = !advOpen;
     if (btn({912.f, y0 + 130, 44, 22}, "Help", false, m, click, 10)) helpOpen = !helpOpen;
 }
 
@@ -1956,7 +1967,7 @@ void drawAdvisor(Vector2 m, bool click) {
     DrawText(TextFormat("Popularity %d%%", popularity), (int)pr.x + 20, (int)pr.y + 372, 18, ink);
     float x = pr.x + 220, y = pr.y + 60;
     DrawText("Treasury", (int)x, (int)y, 20, ink); DrawText(TextFormat("%d Gold   (%+d every 5 s)", gold, (int)(pop * tax * 0.5f)), (int)x + 120, (int)y + 2, 16, ink); y += 34;
-    DrawText("Granary", (int)x, (int)y, 20, ink); y += 26;
+    DrawText(hasGranary() ? "Granary - food storage" : "GRANARY MISSING - people cannot eat!", (int)x, (int)y, 20, hasGranary() ? ink : RED); y += 26;
     struct Row { const char* n; int v; Color c; }; int animalsAlive = 0; for (auto& an : AN) if (an.state == 0) animalsAlive++;
     Row rows[] = {{"Bread", bread, {60, 140, 50, 255}}, {"Meat", meat, {205, 95, 75, 255}}, {"Apples", apples, {200, 60, 50, 255}}, {"Dates", dates, {200, 120, 40, 255}}, {"Wine", wine, {140, 50, 120, 255}}, {"Candles", candles, {220, 190, 60, 255}},
                                                                  {"Grain", grain, {190, 160, 60, 255}}, {"Flour", flour, {200, 190, 170, 255}}, {"Grapes", grapes, {100, 60, 150, 255}}, {"Game animals", animalsAlive, {120, 150, 80, 255}}};
