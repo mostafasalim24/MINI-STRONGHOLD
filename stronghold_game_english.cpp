@@ -2277,7 +2277,7 @@ int main() {
                 const char* sub = "Build your castle, grow your people, crush your enemies"; DrawText(sub, SW / 2 - MeasureText(sub, 18) / 2, 66, 18, ink);
                 const char* lab[6] = {"CAMPAIGN  (10 missions)", "TUTORIAL", "CUSTOM GAME", "HELP - HOW TO PLAY", "OPTIONS", "QUIT"};
                 for (int i = 0; i < 6; i++) if (btn({SW / 2.f - 190, 112.f + i * 66, 380, 54}, lab[i], false, m, mc, 22)) {
-                    if (i == 0) screen = 1; else if (i == 1) { selMission = 0; screen = 2; } else if (i == 2) { lordStyle = min(lordStyle, 2); screen = 3; } else if (i == 3) { screen = 4; helpOpen = true; } else if (i == 4) optOpen = true; else quitGame = true; }
+                    if (i == 0) screen = 1; else if (i == 1) { selMission = 0; screen = 2; } else if (i == 2) { if (lordStyle < 13 || lordStyle >= NLORD) lordStyle = 13; screen = 3; } else if (i == 3) { screen = 4; helpOpen = true; } else if (i == 4) optOpen = true; else quitGame = true; }
                 DrawText(TextFormat("Campaign progress: %d / 10 missions won%s", campDone, tutDone ? "   (tutorial done)" : "   (new here? try the TUTORIAL first!)"), SW / 2 - 200, 520, 15, ink);
                 DrawText("Your enemies start with only a keep. They build their own castles, train armies and attack - fast!", 140, 560, 14, ink);
                 DrawText("F11 = full screen.   Esc = back.", SW / 2 - 100, 640, 13, LIGHTGRAY);
