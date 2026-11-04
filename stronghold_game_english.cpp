@@ -134,7 +134,7 @@ bool cheatInstant = false, cheatGod = false, cheatUsed = false, cheatOpen = fals
 // ---------------- settings (saved to settings.cfg) ----------------
 struct Settings {
     float master = 0.8f, music = 0.6f, sfx = 0.8f;
-    bool fullscreen = false; int winScale = 1;           // 0 = small, 1 = medium, 2 = large window
+    bool fullscreen = false; int winScale = 0;           // 0 = Full HD, 1 = QHD 1440p, 2 = 4K UHD
     bool vsync = true; int fpsCap = 1;                   // 0 = 30, 1 = 60, 2 = 120, 3 = unlimited
     int quality = 2;                                     // 0 low, 1 medium, 2 high (presets)
     bool shadows = true, clouds = true, vignette = true, detail = true, smooth = true, showFps = false;
@@ -1625,7 +1625,7 @@ int pickB(Vector2 w, int side) {  // building under the mouse (side: 0 = ours, 1
 }
 
 // ---------------- window / display ----------------
-const int WIN_W[3] = {960, 1200, 1440}, WIN_H[3] = {688, 860, 1032};
+const int WIN_W[3] = {1920, 2560, 3840}, WIN_H[3] = {1080, 1440, 2160};
 bool isFs = false; Vector2 savedPos = {40, 40};
 void applyDisplay() {
     if (cfg.vsync) SetWindowState(FLAG_VSYNC_HINT); else ClearWindowState(FLAG_VSYNC_HINT);
@@ -1677,9 +1677,10 @@ void optionsUI(Vector2 m, bool click, bool down) {
     lab("Screen mode", pr.y + 204);
     if (btn({cx, pr.y + 202, 145, 26}, "Windowed", !cfg.fullscreen, m, click, 14) && cfg.fullscreen) { cfg.fullscreen = false; applyDisplay(); changed = true; }
     if (btn({cx + 155, pr.y + 202, 145, 26}, "Full screen", cfg.fullscreen, m, click, 14) && !cfg.fullscreen) { cfg.fullscreen = true; applyDisplay(); changed = true; }
-    lab("Window size", pr.y + 238);
-    static const char* WN[3] = {"Small 960x688", "Medium 1200x860", "Large 1440x1032"};
-    for (int i = 0; i < 3; i++) if (btn({cx + i * 101.f, pr.y + 236, 97, 26}, i == 0 ? "Small" : i == 1 ? "Medium" : "Large", cfg.winScale == i, m, click, 13)) { cfg.winScale = i; if (!cfg.fullscreen) applyDisplay(); changed = true; }
+    lab("Window resolution", pr.y + 238);
+    static const char* WN[3] = {"Full HD 1920x1080", "QHD 2560x1440", "4K UHD 3840x2160"};
+    static const char* WR[3] = {"1080p", "1440p", "4K"};
+    for (int i = 0; i < 3; i++) if (btn({cx + i * 101.f, pr.y + 236, 97, 26}, WR[i], cfg.winScale == i, m, click, 13)) { cfg.winScale = i; if (!cfg.fullscreen) applyDisplay(); changed = true; }
     DrawText(WN[cfg.winScale], (int)cx + 310, (int)pr.y + 242, 12, LIGHTGRAY);
     lab("VSync", pr.y + 272); if (btn({cx, pr.y + 270, 145, 26}, cfg.vsync ? "ON" : "OFF", cfg.vsync, m, click, 14)) { cfg.vsync = !cfg.vsync; applyDisplay(); changed = true; }
     lab("FPS limit", pr.y + 306);
