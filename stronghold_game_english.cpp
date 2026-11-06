@@ -1899,12 +1899,16 @@ void drawPopup(Vector2 m) {
 // ---------------- HUD ----------------
 const char* RN[4] = {"None", "Half", "Full", "Double"};
 int hudTab = 0;
-const int TABS[5][9] = {{WHEAT, APPLE, GRAPE, DATE, MILL, BAKERY, GRANARY, STORAGE, HUNTER},
-                        {WOOD, QUARRY, IRON, FLETCHER, POLE, SMITH, WINERY, CANDLE, -1},
-                        {HOUSE, INN, CHURCH, MARKET, GARDEN, -1, -1, -1, -1},
-                        {BARRACKS, TENT, SIEGE, ENGGUILD, HEALER, -1, -1, -1, -1},
-                        {TOWER, RTOWER, WALL, GATE, -1, -1, -1, -1, -1}};
-const char* TABN[5] = {"Farms", "Industry", "Town", "Military", "Defense"};
+// Six classic RTS building pages. Every entry maps to an existing gameplay building type.
+const int TABS[6][9] = {
+    {HOUSE, INN, MARKET, CHURCH, -1, -1, -1, -1, -1},                         // Popular
+    {GRANARY, APPLE, WHEAT, GRAPE, DATE, MILL, BAKERY, HUNTER, GARDEN},       // Food
+    {WOOD, QUARRY, IRON, STORAGE, -1, -1, -1, -1, -1},                       // Resources
+    {FLETCHER, POLE, SMITH, WINERY, CANDLE, -1, -1, -1, -1},                 // Industry
+    {BARRACKS, TENT, SIEGE, ENGGUILD, HEALER, -1, -1, -1, -1},               // Military
+    {WALL, TOWER, RTOWER, GATE, -1, -1, -1, -1, -1}                         // Castle
+};
+const char* TABN[6] = {"Popular", "Food", "Resources", "Industry", "Military", "Castle"};
 const char* DESC[NB] = {"Your main castle.", "Produces wood.", "Produces stone.", "Produces iron.",
     "Grows wheat for the Grain Mill.", "Increases population capacity.", "Makes bows from wood.", "Makes spears from wood.",
     "Makes swords from iron.", "Recruits eight medieval infantry using weapon stocks.", "Arabic War Tent: recruits desert troops for gold only.", "A tower that fires arrows.", "A wall that blocks enemies.",
@@ -1925,7 +1929,7 @@ const float MMS = 2.5f;
 void hud(Vector2 m, bool click, int& build, Camera2D& cam) {
     int iy = MAPH; float y0 = (float)MAPH;
     DrawRectangleGradientV(0, iy, SW, HUD, Color{62, 45, 30, 255}, Color{30, 22, 14, 255}); DrawRectangle(0, iy, SW, 2, GOLD);
-    for (int t = 0; t < 5; t++) if (btn({6.f + t * 72, y0 + 6, 70, 24}, TABN[t], hudTab == t, m, click, 12)) hudTab = t;
+    for (int t = 0; t < 6; t++) if (btn({6.f + t * 72, y0 + 6, 70, 24}, TABN[t], hudTab == t, m, click, 11)) hudTab = t;
     const char* tip = "Pick a building, then click the map. Right-click cancels.";
     for (int i = 0; i < 9 && TABS[hudTab][i] >= 0; i++) {
         int bt = TABS[hudTab][i]; Rectangle r = {6.f + i * 62, y0 + 34, 60, 62}; bool aff = affordable(bt), h = CheckCollisionPointRec(m, r);
