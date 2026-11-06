@@ -61,11 +61,11 @@ bool parchmentButton(Rectangle r, const char* label, Vector2 mouse, bool click, 
     bool hover = CheckCollisionPointRec(mouse, r);
     DrawRectangleRec({r.x + 3, r.y + 4, r.width, r.height}, {0, 0, 0, 100});
     DrawRectangleRec(r, hover ? parchmentLight : parchment);
-    DrawRectangleLinesEx(r, hover ? 3.0f : 2.0f, hover ? {255, 220, 135, 255} : {93, 63, 35, 255});
+    DrawRectangleLinesEx(r, hover ? 3.0f : 2.0f, hover ? Color{255, 220, 135, 255} : Color{93, 63, 35, 255});
     DrawRectangleLinesEx({r.x + 5, r.y + 4, r.width - 10, r.height - 8}, 1, {166, 127, 72, 255});
     int tw = MeasureText(label, fontSize);
     DrawText(label, (int)(r.x + (r.width - tw) * 0.5f), (int)(r.y + (r.height - fontSize) * 0.5f),
-             fontSize, hover ? {91, 48, 20, 255} : ink);
+             fontSize, hover ? Color{91, 48, 20, 255} : ink);
     if (hover) DrawRectangle((int)r.x + 9, (int)r.y + 8, 3, (int)r.height - 16, gold);
     return hover && click;
 }
