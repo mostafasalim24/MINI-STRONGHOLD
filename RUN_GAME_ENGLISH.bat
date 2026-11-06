@@ -24,7 +24,7 @@ if not exist "C:\msys64\ucrt64\include\raylib.h" (
     exit /b 1
 )
 echo Compiling game...
-g++ "stronghold_game_english.cpp" -o "StrongholdGame.exe" -std=c++17 -O2 -I"C:\msys64\ucrt64\include" -L"C:\msys64\ucrt64\lib" -lraylib -lglfw3 -lopengl32 -lgdi32 -lwinmm -luser32 -lshell32 > "build.log" 2>&1
+g++ "stronghold_game_english.cpp" "MainMenu.cpp" -o "StrongholdGame.exe" -std=c++17 -O2 -I"C:\msys64\ucrt64\include" -L"C:\msys64\ucrt64\lib" -lraylib -lglfw3 -lopengl32 -lgdi32 -lwinmm -luser32 -lshell32 > "build.log" 2>&1
 if errorlevel 1 (
     echo.
     echo BUILD FAILED. Details:
