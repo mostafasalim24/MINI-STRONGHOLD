@@ -209,6 +209,7 @@ void musicTick(float dt, int want) {  // want: 0 menu, 1 peaceful game, 2 battle
 struct Spr { Texture2D t{}; bool ok = false; };
 enum { S_CASTLE, S_WOOD, S_QUARRY, S_IRON, S_HOUSE, S_MAPBG, S_WHEAT, S_APPLE, S_GRAPE, S_DATE, S_CHURCH, S_INN, S_WINERY, S_BAKERY, S_MILL, S_SAWMILL, S_ADVISOR, S_BOOK, NSPR };
 Spr SP[NSPR], TREE[8], ROCK[14];
+Spr MENU_ART; // User-provided KINGS OF MESOPOTAMIA main-menu artwork
 Texture2D LORD_CARD[3], LORD_FACE[3]; bool lordsOk = false, rocksOk = false;
 Texture2D HORSE_ARCHER_FR[4], ARAB_LORD_WALK[7], ARAB_LORD_ATTACK[4];
 Texture2D ENGLISH_LORD_WALK[6], ENGLISH_LORD_ATTACK[7];
@@ -226,6 +227,10 @@ void loadAssets() {
     static const char* sn[NSPR] = {"castle.png", "woodcutter.png", "quarry.png", "iron_mine.png", "house.png", "menu_map.png", "farm_wheat.png", "farm_apple.png", "farm_grape.png", "farm_date.png",
                                    "church.png", "inn.png", "winery.png", "bakery.png", "mill.png", "sawmill.png", "advisor.png", "scribe_book.png"};
     for (int i = 0; i < NSPR; i++) { SP[i].t = loadTex(sn[i], i != S_MAPBG && i != S_BOOK); SP[i].ok = SP[i].t.id != 0; }
+    // This artwork is stored in the project root (next to the game source), not ./assets.
+    MENU_ART.t = LoadTexture("Kings of Mesopotamia Main Menu.png");
+    MENU_ART.ok = MENU_ART.t.id != 0;
+    if (MENU_ART.ok) SetTextureFilter(MENU_ART.t, TEXTURE_FILTER_BILINEAR);
     for (int i = 0; i < 8; i++) { TREE[i].t = loadTex(string("tree_") + TREE_FILES[i] + ".png", true); TREE[i].ok = TREE[i].t.id != 0; }
     rocksOk = true;
     for (int i = 0; i < 14; i++) { ROCK[i].t = loadTex("rock_" + to_string(i) + ".png", true); ROCK[i].ok = ROCK[i].t.id != 0; rocksOk = rocksOk && ROCK[i].ok; }
@@ -2272,7 +2277,7 @@ int main() {
             bool mc = click && !optOpen && !(screen == 4);
             BeginTextureMode(screenRT);
             if (screen == 0) {
-                MainMenu::Action action = MainMenu::DrawMain(SP[S_MAPBG].t, SP[S_MAPBG].ok, m, mc, gtime);
+                MainMenu::Action action = MainMenu::DrawMain(MENU_ART.ok ? MENU_ART.t : SP[S_MAPBG].t, MENU_ART.ok || SP[S_MAPBG].ok, m, mc, gtime);
                 if (action != MainMenu::Action::None) sfx(SFX_CLICK, 0.65f);
                 if (action == MainMenu::Action::NewGame) screen = 5;
                 else if (action == MainMenu::Action::Campaign) screen = 1;
