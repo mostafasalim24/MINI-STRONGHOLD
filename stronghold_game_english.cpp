@@ -2,6 +2,7 @@
 // Build from the tabs at the bottom, then click the map.  Q/W/E/K/D/Z train soldiers (Shift = train all, Ctrl = train 5).
 // Drag = select | Right-click = move | A = select all | -/= tax | [ ] rations | P pause | TAB speed | O options | F11 full screen
 #include "raylib.h"
+#include "MainMenu.h"
 #include <vector>
 #include <string>
 #include <cmath>
@@ -2270,22 +2271,38 @@ int main() {
             if (IsKeyPressed(KEY_ESCAPE)) { if (optOpen) optOpen = false; else if (screen == 4) screen = 0; else if (screen != 0) screen = (screen == 2 ? 1 : 0); }
             bool mc = click && !optOpen && !(screen == 4);
             BeginTextureMode(screenRT);
-            if (SP[S_MAPBG].ok) {
-                DrawTexturePro(SP[S_MAPBG].t, Rectangle{0, 0, (float)SP[S_MAPBG].t.width, (float)SP[S_MAPBG].t.height}, Rectangle{0, 0, (float)SW, (float)SH}, Vector2{0, 0}, 0, WHITE);
-                DrawRectangle(0, 0, SW, SH, Color{16, 10, 5, 170});
-            } else DrawRectangleGradientV(0, 0, SW, SH, Color{70, 52, 34, 255}, Color{30, 22, 14, 255});
-            const char* title = "MINI STRONGHOLD";
-            DrawText(title, SW / 2 - MeasureText(title, 44) / 2 + 2, 16, 44, Color{0, 0, 0, 200}); DrawText(title, SW / 2 - MeasureText(title, 44) / 2, 14, 44, GOLD);
-            if (SP[S_CASTLE].ok) { drawSprite(SP[S_CASTLE].t, 90, 72, 0, 66); drawSprite(SP[S_CASTLE].t, SW - 90, 72, 0, 66, true); }
-            if (screen == 0) {   // ---- main menu ----
-                const char* sub = "Build your castle, grow your people, crush your enemies"; DrawText(sub, SW / 2 - MeasureText(sub, 18) / 2, 66, 18, ink);
-                const char* lab[6] = {"CAMPAIGN  (10 missions)", "TUTORIAL", "CUSTOM GAME", "HELP - HOW TO PLAY", "OPTIONS", "QUIT"};
-                for (int i = 0; i < 6; i++) if (btn({SW / 2.f - 190, 112.f + i * 66, 380, 54}, lab[i], false, m, mc, 22)) {
-                    if (i == 0) screen = 1; else if (i == 1) { selMission = 0; screen = 2; } else if (i == 2) { if (lordStyle < 13 || lordStyle >= NLORD) lordStyle = 13; screen = 3; } else if (i == 3) { screen = 4; helpOpen = true; } else if (i == 4) optOpen = true; else quitGame = true; }
-                DrawText(TextFormat("Campaign progress: %d / 10 missions won%s", campDone, tutDone ? "   (tutorial done)" : "   (new here? try the TUTORIAL first!)"), SW / 2 - 200, 520, 15, ink);
-                DrawText("Your enemies start with only a keep. They build their own castles, train armies and attack - fast!", 140, 560, 14, ink);
-                DrawText("F11 = full screen.   Esc = back.", SW / 2 - 100, 640, 13, LIGHTGRAY);
-            } else if (screen == 1) {   // ---- campaign: 10 missions ----
+            if (screen == 0) {
+                MainMenu::Action action = MainMenu::DrawMain(SP[S_MAPBG].t, SP[S_MAPBG].ok, m, mc, gtime);
+                if (action != MainMenu::Action::None) sfx(SFX_CLICK, 0.65f);
+                if (action == MainMenu::Action::NewGame) screen = 5;
+                else if (action == MainMenu::Action::Campaign) screen = 1;
+                else if (action == MainMenu::Action::CustomBattle) { if (lordStyle < 13 || lordStyle >= NLORD) lordStyle = 13; screen = 3; }
+                else if (action == MainMenu::Action::Tutorial) { selMission = 0; screen = 2; }
+                else if (action == MainMenu::Action::Options) optOpen = true;
+                else if (action == MainMenu::Action::Help) { screen = 4; helpOpen = true; }
+                else if (action == MainMenu::Action::Credits) screen = 6;
+                else if (action == MainMenu::Action::Exit) quitGame = true;
+            } else {
+                if (SP[S_MAPBG].ok) {
+                    DrawTexturePro(SP[S_MAPBG].t, Rectangle{0, 0, (float)SP[S_MAPBG].t.width, (float)SP[S_MAPBG].t.height}, Rectangle{0, 0, (float)SW, (float)SH}, Vector2{0, 0}, 0, WHITE);
+                    DrawRectangle(0, 0, SW, SH, Color{16, 10, 5, 170});
+                } else DrawRectangleGradientV(0, 0, SW, SH, Color{70, 52, 34, 255}, Color{30, 22, 14, 255});
+                const char* title = "KINGS OF MESOPOTAMIA";
+                DrawText(title, SW / 2 - MeasureText(title, 34) / 2 + 2, 16, 34, Color{0, 0, 0, 200});
+                DrawText(title, SW / 2 - MeasureText(title, 34) / 2, 14, 34, GOLD);
+                if (SP[S_CASTLE].ok) { drawSprite(SP[S_CASTLE].t, 90, 72, 0, 66); drawSprite(SP[S_CASTLE].t, SW - 90, 72, 0, 66, true); }
+                if (screen == 5) {
+                    MainMenu::Action action = MainMenu::DrawFaction(SP[S_MAPBG].t, SP[S_MAPBG].ok, m, mc, gtime);
+                    if (action == MainMenu::Action::ArabFaction || action == MainMenu::Action::EnglishFaction) {
+                        keepStyle = action == MainMenu::Action::ArabFaction ? 0 : 1;
+                        sfx(SFX_CLICK, 0.75f);
+                        startMission(-1, cam); winRecorded = false; screen = 0;
+                    } else if (action == MainMenu::Action::Back) { sfx(SFX_CLICK, 0.55f); screen = 0; }
+                } else if (screen == 6) {
+                    bool goBack = false;
+                    MainMenu::DrawCredits(SP[S_MAPBG].t, SP[S_MAPBG].ok, m, mc, gtime, goBack);
+                    if (goBack) { sfx(SFX_CLICK, 0.55f); screen = 0; }
+                } else if (screen == 1) {   // ---- campaign: 10 missions ----
                 const char* sub = "CAMPAIGN - choose a mission"; DrawText(sub, SW / 2 - MeasureText(sub, 24) / 2, 70, 24, ink);
                 for (int i = 1; i <= 10; i++) {
                     int c = (i - 1) % 5, r = (i - 1) / 5; Rectangle rc = {24.f + c * 186, 118.f + r * 190, 176, 176}; const Mission& ms = MISSIONS[i];
@@ -2354,6 +2371,7 @@ int main() {
                 for (int k = 0; k < 5; k++) if (btn({145.f + k * 155.f, 444, 150, 30}, TextFormat("%s %s", enemyOn[k] ? "ON" : "OFF", EN_[k]), enemyOn[k], m, mc, 12) && !(enemyOn[k] && enabled == 1)) enemyOn[k] = !enemyOn[k];
                 if (btn({SW / 2.f - 140, 510, 280, 48}, "START BATTLE", false, m, mc, 22)) { startMission(-1, cam); winRecorded = false; screen = 0; }
                 if (btn({24.f, 510, 140, 44}, "Back", false, m, mc, 18)) screen = 0;
+            }
             }
             if (screen == 4) { if (!helpOpen) screen = 0; else drawHelp(m, click && !optOpen, true); }
             if (optOpen) optionsUI(m, click, down);
