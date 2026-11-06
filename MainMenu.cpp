@@ -99,7 +99,7 @@ Action DrawMain(Texture2D battleBackground, bool hasBackground, Vector2 mouse, b
     DrawText("THE FATE OF TWO KINGDOMS", 465, 565, 18, {238, 214, 170, 230});
     DrawText("ARAB KINGDOM  |  ENGLISH KINGDOM", 465, 593, 13, {222, 202, 168, 220});
     float glow = 18.0f + 8.0f * (0.5f + 0.5f * std::sin(time * 1.4f));
-    DrawCircleGradient(790, 310, glow, {255, 209, 128, 28}, {255, 209, 128, 0});
+    DrawCircleGradient({790, 310}, glow, {255, 209, 128, 28}, {255, 209, 128, 0});
     return Action::None;
 }
 
